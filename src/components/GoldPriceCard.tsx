@@ -6,8 +6,8 @@ import { formatPrice, CurrencyCode } from '../theme/currency';
 
 interface GoldPriceCardProps {
   title: string;
-  /** Base price in USD */
   basePriceUsd: number;
+  imageUrl?: string;
 }
 
 const CURRENCY_ROWS: { code: CurrencyCode; label: string }[] = [

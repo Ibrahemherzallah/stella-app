@@ -1,21 +1,21 @@
-// src/screens/admin/GoldPricingSettingsScreen.tsx
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TextInput, ScrollView, Alert, } from 'react-native';
-import { ScreenContainer } from '../../components/ScreenContainer';
-import { PrimaryButton } from '../../components/PrimaryButton';
+import { Alert, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
+import { colors, spacing, borderRadius, fontSizes, fontWeights } from '../../theme/colors';
 import { useTheme } from '../../context/ThemeContext';
-import { spacing, borderRadius, fontSizes, fontWeights } from '../../theme/colors';
-import { SafeAreaView } from 'react-native-safe-area-context'
-import { ThemeToggle } from '@/src/components/ThemeToggle';
-
-// TODO: implement these in your api.ts
-// import { getGoldPricingSettings, saveGoldPricingSettings } from '../../services/api';
+import { ThemeToggle } from '../../components/ThemeToggle';
+import { PrimaryButton } from '../../components/PrimaryButton';
+import { getTodaySettings, saveTodaySettings, listItems, updateItem, } from '../../services/firestoreGold';
 
 type ProductConfig = {
   id: string;
   title: string;
   weightGrams: number;
   makingFeePerGramUsd: number;
+  imageUrl?: string;
+  order?: number;
+  isActive?: boolean;
 };
 
 type GoldPricingSettings = {
@@ -23,89 +23,51 @@ type GoldPricingSettings = {
   premiumOunceUsd: number;
   usdToIls: number;
   usdToJod: number;
-  products: ProductConfig[];
 };
 
-// some initial hard-coded configs – you can load them from backend instead
-const DEFAULT_SETTINGS: GoldPricingSettings = {
-  goldOunceUsd: 5000,
+const EMPTY_SETTINGS: GoldPricingSettings = {
+  goldOunceUsd: 0,
   premiumOunceUsd: 0,
-  usdToIls: 3.7,
-  usdToJod: 0.71,
-  products: [
-    {
-      id: '21k_buy_with_making',
-      title: 'سعر الذهب عيار 21 للشراء مع مصنعية',
-      weightGrams: 1,
-      makingFeePerGramUsd: 2,
-    },
-    {
-      id: '21k_buy_without_making',
-      title: 'سعر الذهب عيار 21 للشراء بدون مصنعية',
-      weightGrams: 1,
-      makingFeePerGramUsd: 0,
-    },
-    {
-      id: '21k_sell_without_making',
-      title: 'سعر الذهب عيار 21 للبيع بدون مصنعية',
-      weightGrams: 1,
-      makingFeePerGramUsd: 1,
-    },
-    {
-      id: 'rashadi_7g',
-      title: 'ليرة رشادي 7 غم مختوم وزارة',
-      weightGrams: 7,
-      makingFeePerGramUsd: 1.5,
-    },
-    {
-      id: 'english_8g',
-      title: 'ليرة انجليزي 8 غم مختوم وزارة',
-      weightGrams: 8,
-      makingFeePerGramUsd: 1.5,
-    },
-    {
-      id: 'ounce_31_1g',
-      title: 'اونصة محلي 31.1 غم مختوم وزارة',
-      weightGrams: 31.1,
-      makingFeePerGramUsd: 2,
-    },
-  ],
+  usdToIls: 0,
+  usdToJod: 0,
 };
 
 export const GoldPricingSettingsScreen: React.FC = () => {
   const { theme } = useTheme();
-  const [settings, setSettings] = useState<GoldPricingSettings>(DEFAULT_SETTINGS);
+  const navigation = useNavigation();
+  const [settings, setSettings] = useState<GoldPricingSettings>(EMPTY_SETTINGS);
+  const [products, setProducts] = useState<ProductConfig[]>([]);
   const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
 
-  // If you have backend, load initial settings here
-  // useEffect(() => {
-  //   const load = async () => {
-  //     try {
-  //       setLoading(true);
-  //       const remote = await getGoldPricingSettings();
-  //       setSettings(remote);
-  //     } catch (e) {
-  //       console.error(e);
-  //     } finally {
-  //       setLoading(false);
-  //     }
-  //   };
-  //   load();
-  // }, []);
+  useEffect(() => {
+    loadAll();
+  }, []);
+
+  const loadAll = async () => {
+    try {
+      setInitialLoading(true);
+      const [s, items] = await Promise.all([getTodaySettings(), listItems()]);
+      if (s) setSettings(s);
+      setProducts(items);
+    } catch (e) {
+      console.error(e);
+      Alert.alert('خطأ', 'فشل تحميل البيانات من Firebase');
+    } finally {
+      setInitialLoading(false);
+    }
+  };
 
   const handleChangeField = (field: keyof GoldPricingSettings, value: string) => {
     const num = parseFloat(value) || 0;
-    setSettings(prev => ({ ...prev, [field]: num }));
+    setSettings((prev) => ({ ...prev, [field]: num }));
   };
 
   const handleChangeProductFee = (id: string, value: string) => {
     const num = parseFloat(value) || 0;
-    setSettings(prev => ({
-      ...prev,
-      products: prev.products.map(p =>
-        p.id === id ? { ...p, makingFeePerGramUsd: num } : p
-      ),
-    }));
+    setProducts((prev) =>
+      prev.map((p) => (p.id === id ? { ...p, makingFeePerGramUsd: num } : p))
+    );
   };
 
   const finalOunceUsd = settings.goldOunceUsd + settings.premiumOunceUsd;
@@ -114,8 +76,18 @@ export const GoldPricingSettingsScreen: React.FC = () => {
   const handleSave = async () => {
     try {
       setLoading(true);
-      // await saveGoldPricingSettings(settings);
-      Alert.alert('تم الحفظ', 'تم حفظ إعدادات أسعار الذهب بنجاح');
+
+      // 1) Save global settings
+      await saveTodaySettings(settings);
+
+      // 2) Save each product's fee changes (only fee here)
+      await Promise.all(
+        products.map((p) =>
+          updateItem(p.id, { makingFeePerGramUsd: p.makingFeePerGramUsd })
+        )
+      );
+
+      Alert.alert('تم الحفظ', 'تم حفظ الإعدادات والمنتجات بنجاح');
     } catch (e) {
       console.error(e);
       Alert.alert('خطأ', 'فشل حفظ الإعدادات');
@@ -124,151 +96,126 @@ export const GoldPricingSettingsScreen: React.FC = () => {
     }
   };
 
-  return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: `${theme.background}`}}>
-      <ScrollView style={[styles.container, { backgroundColor: theme.background }]} contentContainerStyle={{ paddingBottom: spacing.xl }}>
-        <View style={styles.headerRow}>
-          <ThemeToggle />
-          <Text style={[styles.title, { color: theme.darkText }]}>
-            إعدادات أسعار الذهب
-          </Text>
+  if (initialLoading) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }}>
+        <View style={{ padding: spacing.lg }}>
+          <Text style={{ color: theme.darkText }}>جارٍ التحميل...</Text>
         </View>
+      </SafeAreaView>
+    );
+  }
 
-
-        {/* GLOBAL SETTINGS */}
-        <View
-          style={[
-            styles.card,
-            { backgroundColor: theme.surface, shadowColor: theme.darkText },
-          ]}
-        >
-          <Text style={[styles.cardTitle, { color: theme.goldPrimary }]}>
-            إعدادات عامة
-          </Text>
-
-          <View style={styles.field}>
-            <Text style={[styles.label, { color: theme.darkText }]}>
-              سعر الذهب في البورصة (أونصة / دولار)
+  console.log("products is : " ,products )
+  return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }}>
+      <ScrollView style={{ flex: 1, backgroundColor: theme.background }} contentContainerStyle={{ paddingBottom: spacing.xl }}>
+        <View style={{ padding: spacing.md }}>
+          <View style={{ marginBottom: spacing.lg }}>
+            <ThemeToggle />
+            <Text style={{ color: theme.darkText, fontSize: fontSizes.xxl, fontWeight: '700',textAlign: 'center' }}>
+              إعدادات أسعار الذهب
             </Text>
+          </View>
+
+          {/* GLOBAL SETTINGS */}
+          <View style={{ marginTop: spacing.lg }}>
+            <Text style={{ color: theme.goldPrimary, fontSize: 18, fontWeight: '700' }}>إعدادات عامة</Text>
+
+            <Text style={{ marginTop: spacing.md, color: theme.darkText }}>سعر الذهب في البورصة (أونصة / دولار)</Text>
             <TextInput
-              style={[styles.input, { color: theme.darkText, borderColor: theme.lightGray }]}
+              style={{ borderWidth: 1, borderColor: theme.lightGray, padding: 12, borderRadius: 10, color: theme.darkText, marginTop: 6 }}
               keyboardType="numeric"
               value={String(settings.goldOunceUsd)}
-              onChangeText={v => handleChangeField('goldOunceUsd', v)}
+              onChangeText={(v) => handleChangeField('goldOunceUsd', v)}
             />
+
+            <Text style={{ marginTop: spacing.md, color: theme.darkText }}>الزيادة على الأونصة (Premium)</Text>
+            <TextInput
+              style={{ borderWidth: 1, borderColor: theme.lightGray, padding: 12, borderRadius: 10, color: theme.darkText, marginTop: 6 }}
+              keyboardType="numeric"
+              value={String(settings.premiumOunceUsd)}
+              onChangeText={(v) => handleChangeField('premiumOunceUsd', v)}
+            />
+
+            <Text style={{ marginTop: spacing.md, color: theme.darkText }}>USD → ILS</Text>
+            <TextInput
+              style={{ borderWidth: 1, borderColor: theme.lightGray, padding: 12, borderRadius: 10, color: theme.darkText, marginTop: 6 }}
+              keyboardType="numeric"
+              value={String(settings.usdToIls)}
+              onChangeText={(v) => handleChangeField('usdToIls', v)}
+            />
+
+            <Text style={{ marginTop: spacing.md, color: theme.darkText }}>USD → JOD</Text>
+            <TextInput
+              style={{ borderWidth: 1, borderColor: theme.lightGray, padding: 12, borderRadius: 10, color: theme.darkText, marginTop: 6 }}
+              keyboardType="numeric"
+              value={String(settings.usdToJod)}
+              onChangeText={(v) => handleChangeField('usdToJod', v)}
+            />
+
+            <Text style={{ marginTop: spacing.md, color: theme.lightText }}>
+              السعر النهائي للأونصة = {finalOunceUsd.toFixed(2)}$
+            </Text>
+            <Text style={{ color: theme.lightText }}>
+              سعر الغرام الأساسي ≈ {baseGramUsd.toFixed(2)}$
+            </Text>
           </View>
 
-          {/*<View style={styles.field}>*/}
-          {/*  <Text style={[styles.label, { color: theme.darkText }]}>*/}
-          {/*    الزيادة فوق سعر البورصة (أونصة / دولار)*/}
-          {/*  </Text>*/}
-          {/*  <TextInput*/}
-          {/*    style={[styles.input, { color: theme.darkText, borderColor: theme.lightGray }]}*/}
-          {/*    keyboardType="numeric"*/}
-          {/*    value={String(settings.premiumOunceUsd)}*/}
-          {/*    onChangeText={v => handleChangeField('premiumOunceUsd', v)}*/}
-          {/*  />*/}
-          {/*</View>*/}
+          {/* PRODUCTS */}
+          <View style={{ marginTop: spacing.xl }}>
+            <Text style={{ color: theme.goldPrimary, fontSize: 18, fontWeight: '700' }}>المصنعية لكل صنف</Text>
 
-          <View style={styles.fieldRow}>
-            <View style={styles.fieldHalf}>
-              <Text style={[styles.label, { color: theme.darkText }]}>
-                سعر الدولار مقابل الشيكل (USD → ILS)
-              </Text>
-              <TextInput
-                style={[styles.input, { color: theme.darkText, borderColor: theme.lightGray }]}
-                keyboardType="numeric"
-                value={String(settings.usdToIls)}
-                onChangeText={v => handleChangeField('usdToIls', v)}
-              />
-            </View>
-            <View style={styles.fieldHalf}>
-              <Text style={[styles.label, { color: theme.darkText }]}>
-                سعر الدولار مقابل الدينار (USD → JOD)
-              </Text>
-              <TextInput
-                style={[styles.input, { color: theme.darkText, borderColor: theme.lightGray }]}
-                keyboardType="numeric"
-                value={String(settings.usdToJod)}
-                onChangeText={v => handleChangeField('usdToJod', v)}
-              />
-            </View>
-          </View>
+            {products.map((product) => {
+              const finalGramUsd = baseGramUsd + product.makingFeePerGramUsd;
+              const priceUsd = finalGramUsd * product.weightGrams;
+              const priceJod = priceUsd * settings.usdToJod;
+              const priceIls = priceUsd * settings.usdToIls;
 
-          <Text style={[styles.infoText, { color: theme.lightText }]}>
-            السعر النهائي للأونصة = سعر البورصة + الزيادة = {finalOunceUsd.toFixed(2)}$
-          </Text>
-          <Text style={[styles.infoText, { color: theme.lightText }]}>
-            سعر الغرام الأساسي (بدون مصنعية) ≈ {baseGramUsd.toFixed(2)}$
-          </Text>
-        </View>
+              return (
+                <View key={product.id} style={{ marginTop: spacing.lg, padding: 14, borderRadius: 14, backgroundColor: theme.surface }}>
+                  <Text style={{ color: theme.darkText, fontWeight: '700', textAlign: 'right' }}>
+                    {product.title}
+                  </Text>
+                  <Text style={{ color: theme.lightText, textAlign: 'right', marginTop: 4 }}>
+                    الوزن: {product.weightGrams} غرام
+                  </Text>
 
-        {/* PER PRODUCT MAKING FEES */}
-        <View
-          style={[
-            styles.card,
-            { backgroundColor: theme.surface, shadowColor: theme.darkText },
-          ]}
-        >
-          <Text style={[styles.cardTitle, { color: theme.goldPrimary }]}>
-            المصنعية لكل صنف
-          </Text>
-
-          {settings.products.map(product => {
-            const finalGramUsd =
-              baseGramUsd + product.makingFeePerGramUsd;
-            const priceUsd = finalGramUsd * product.weightGrams;
-            const priceJod = priceUsd * settings.usdToJod;
-            const priceIls = priceUsd * settings.usdToIls;
-
-            return (
-              <View key={product.id} style={styles.productBlock}>
-                <Text style={[styles.productTitle, { color: theme.darkText }]}>
-                  {product.title}
-                </Text>
-
-                <Text style={[styles.infoText, { color: theme.lightText }]}>
-                  الوزن: {product.weightGrams} غرام
-                </Text>
-
-                <View style={styles.field}>
-                  <Text style={[styles.label, { color: theme.darkText }]}>
-                    المصنعية لكل غرام (بالدولار)
+                  <Text style={{ color: theme.darkText, marginTop: spacing.md, textAlign: 'right' }}>
+                    المصنعية لكل غرام (USD)
                   </Text>
                   <TextInput
-                    style={[styles.input, { color: theme.darkText, borderColor: theme.lightGray }]}
+                    style={{ borderWidth: 1, borderColor: theme.lightGray, padding: 12, borderRadius: 10, color: theme.darkText, marginTop: 6 }}
                     keyboardType="numeric"
                     value={String(product.makingFeePerGramUsd)}
-                    onChangeText={v => handleChangeProductFee(product.id, v)}
+                    onChangeText={(v) => handleChangeProductFee(product.id, v)}
                   />
-                </View>
 
-                <View style={styles.previewRow}>
-                  <Text style={[styles.previewText, { color: theme.goldPrimary }]}>
-                    السعر النهائي:
-                  </Text>
-                  <View>
-                    <Text style={[styles.previewText, { color: theme.darkText }]}>
-                      {priceUsd.toFixed(2)} $
-                    </Text>
-                    <Text style={[styles.previewText, { color: theme.darkText }]}>
-                      {priceJod.toFixed(2)} JOD
-                    </Text>
-                    <Text style={[styles.previewText, { color: theme.darkText }]}>
-                      {priceIls.toFixed(2)} ₪
-                    </Text>
+                  <View style={{ marginTop: spacing.md }}>
+                    <Text style={{ color: theme.goldPrimary, fontWeight: '700', textAlign: 'right' }}>السعر النهائي:</Text>
+                    <Text style={{ color: theme.darkText, textAlign: 'right' }}>{priceUsd.toFixed(2)} $</Text>
+                    <Text style={{ color: theme.darkText, textAlign: 'right' }}>{priceJod.toFixed(2)} JOD</Text>
+                    <Text style={{ color: theme.darkText, textAlign: 'right' }}>{priceIls.toFixed(2)} ₪</Text>
                   </View>
                 </View>
-              </View>
-            );
-          })}
-        </View>
+              );
+            })}
+          </View>
 
-        <PrimaryButton
-          title={loading ? 'جاري الحفظ...' : 'حفظ الإعدادات'}
-          onPress={handleSave}
-          disabled={loading}
-        />
+          {/* BUTTONS */}
+          <View style={{ marginTop: spacing.xl }}>
+            <PrimaryButton
+              title="إضافة صنف جديد"
+              onPress={() => navigation.navigate('AddGoldItem' as never)}
+            />
+            <View style={{ height: 12 }} />
+            <PrimaryButton
+              title={loading ? 'جاري الحفظ...' : 'حفظ الإعدادات'}
+              onPress={handleSave}
+              disabled={loading}
+            />
+          </View>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );

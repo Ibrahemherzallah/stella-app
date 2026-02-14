@@ -90,11 +90,6 @@ export const SettingsScreen: React.FC = () => {
     ]);
   };
 
-  const themeOptions: { value: ThemeMode; label: string }[] = [
-    { value: 'system', label: 'النظام' },
-    { value: 'light', label: 'فاتح' },
-    { value: 'dark', label: 'داكن' },
-  ];
 
   if (loading) {
     return (
@@ -256,7 +251,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   title: {
-    fontSize: fontSizes.xxxl,
+    fontSize: fontSizes.xxl,
     fontWeight: fontWeights.bold,
     textAlign: 'center',
   },

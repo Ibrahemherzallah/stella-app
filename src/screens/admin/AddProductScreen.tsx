@@ -1,17 +1,6 @@
 // src/screens/admin/AddProductScreen.tsx
 import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  StyleSheet,
-  Switch,
-  KeyboardAvoidingView,
-  Platform,
-  Alert,
-  Image,
-  TouchableOpacity,
-} from 'react-native';
+import { View, Text, TextInput, StyleSheet, Switch, KeyboardAvoidingView, Platform, Alert, Image, TouchableOpacity,ScrollView } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import { ScreenContainer } from '../../components/ScreenContainer';
@@ -22,6 +11,7 @@ import { createProduct, updateProduct } from '../../services/api';
 import { spacing, borderRadius, fontSizes, fontWeights } from '../../theme/colors';
 import type { AdminProduct } from '../../types';
 import { Camera } from 'lucide-react-native';
+import { SafeAreaView } from 'react-native-safe-area-context'
 
 export const AddProductScreen: React.FC = () => {
   const navigation = useNavigation();
@@ -128,11 +118,9 @@ export const AddProductScreen: React.FC = () => {
   };
 
   return (
-    <ScreenContainer>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={[styles.container, { backgroundColor: theme.background }]}
-      >
+    <SafeAreaView style={{ flex: 1, backgroundColor: `${theme.background}`}}>
+      <ScrollView>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={[styles.container, { backgroundColor: theme.background }]}>
         <View style={styles.header}>
           <Text style={[styles.title, { color: theme.darkText }]}>
             {editProduct ? 'تعديل المنتج' : 'إضافة منتج جديد'}
@@ -286,7 +274,8 @@ export const AddProductScreen: React.FC = () => {
           />
         </View>
       </KeyboardAvoidingView>
-    </ScreenContainer>
+      </ScrollView>
+      </SafeAreaView>
   );
 };
 

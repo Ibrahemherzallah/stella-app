@@ -13,6 +13,8 @@ import { spacing, borderRadius, fontSizes, fontWeights } from '../../theme/color
 import { formatPrice } from '../../theme/currency';
 import type { AdminProduct } from '../../types';
 import { Pencil, Trash2 } from 'lucide-react-native';
+import { SafeAreaView } from 'react-native-safe-area-context'
+import { ThemeToggle } from '@/src/components/ThemeToggle';
 
 export const ProductManagementScreen: React.FC = () => {
   const navigation = useNavigation();
@@ -116,9 +118,10 @@ export const ProductManagementScreen: React.FC = () => {
   }
 
   return (
-    <ScreenContainer scrollable={false}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: `${theme.background}`}}>
       <View style={[styles.container, { backgroundColor: theme.background }]}>
         <View style={styles.header}>
+          <ThemeToggle />
           <Text style={[styles.title, { color: theme.darkText }]}>إدارة المنتجات</Text>
         </View>
 
@@ -138,7 +141,7 @@ export const ProductManagementScreen: React.FC = () => {
           showsVerticalScrollIndicator={false}
         />
       </View>
-    </ScreenContainer>
+    </SafeAreaView>
   );
 };
 
@@ -151,7 +154,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   title: {
-    fontSize: fontSizes.xxxl,
+    fontSize: fontSizes.xxl,
     fontWeight: fontWeights.bold,
     textAlign: 'center',
   },
