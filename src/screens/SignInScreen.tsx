@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, TextInput, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
 import { ScreenContainer } from '../components/ScreenContainer';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { ErrorMessage } from '../components/ErrorMessage';
 import { useAuth } from '../context/AuthContext';
 import { colors, spacing, borderRadius, fontSizes, fontWeights } from '../theme/colors';
+import { useTheme } from '@/src/context/ThemeContext';
 
 export const SignInScreen: React.FC = () => {
   const { signIn } = useAuth();
@@ -12,7 +13,7 @@ export const SignInScreen: React.FC = () => {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
+  const { theme,setMode } = useTheme();
   const handleSignIn = async () => {
     if (!email || !password) {
       setError('الرجاء ملء جميع الحقول');
@@ -30,12 +31,14 @@ export const SignInScreen: React.FC = () => {
     }
   };
 
+  useEffect(() => {
+    setMode("light")
+  }, []);
+
   return (
     <ScreenContainer scrollable={false}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.container}
-      >
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.container}>
         <View style={styles.content}>
           <View style={styles.header}>
             <Text style={styles.logo}>Stella</Text>

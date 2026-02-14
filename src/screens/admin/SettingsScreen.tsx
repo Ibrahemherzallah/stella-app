@@ -1,15 +1,6 @@
 // src/screens/admin/SettingsScreen.tsx
 import React, { useEffect, useState } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  StyleSheet,
-  KeyboardAvoidingView,
-  Platform,
-  Alert,
-  TouchableOpacity,
-} from 'react-native';
+import { View, Text, TextInput, StyleSheet, KeyboardAvoidingView, Platform, Alert,ScrollView, TouchableOpacity, } from 'react-native';
 import { ScreenContainer } from '../../components/ScreenContainer';
 import { PrimaryButton } from '../../components/PrimaryButton';
 import { LoadingSpinner } from '../../components/LoadingSpinner';
@@ -19,6 +10,8 @@ import { useTheme, type ThemeMode } from '../../context/ThemeContext';
 import { getSettings, updateSettings } from '../../services/api';
 import { spacing, borderRadius, fontSizes, fontWeights } from '../../theme/colors';
 import type { Settings } from '../../types';
+import { ThemeToggle } from '@/src/components/ThemeToggle';
+import { SafeAreaView } from 'react-native-safe-area-context'
 
 export const SettingsScreen: React.FC = () => {
   const { signOut } = useAuth();
@@ -112,254 +105,145 @@ export const SettingsScreen: React.FC = () => {
   }
 
   return (
-    <ScreenContainer>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={[styles.container, { backgroundColor: theme.background }]}
-      >
-        <View style={styles.header}>
-          <Text style={[styles.title, { color: theme.darkText }]}>الإعدادات</Text>
-        </View>
+    <SafeAreaView style={{ flex: 1, backgroundColor: `${theme.background}`}}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={[styles.container, { backgroundColor: theme.background }]}>
+          <ScrollView>
+            <View style={styles.header}>
+              <ThemeToggle />
+              <Text style={[styles.title, { color: theme.darkText }]}>الإعدادات</Text>
+            </View>
 
-        {error && <ErrorMessage message={error} />}
+            {error && <ErrorMessage message={error} />}
 
-        <View style={styles.form}>
-          <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: theme.goldPrimary }]}>
-              المظهر
-            </Text>
+            <View style={styles.form}>
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, { color: theme.goldPrimary }]}>
+                قواعد الذهب
+              </Text>
 
-            <View style={styles.themeSelector}>
-              {themeOptions.map((option) => (
-                <TouchableOpacity
-                  key={option.value}
+              <View style={styles.inputContainer}>
+                <Text style={[styles.label, { color: theme.darkText }]}>
+                  نص القواعد والملاحظات
+                </Text>
+                <TextInput
                   style={[
-                    styles.themeButton,
-                    mode === option.value && {
-                      backgroundColor: theme.goldPrimary,
-                    },
-                    mode !== option.value && {
+                    styles.input,
+                    styles.textArea,
+                    {
                       backgroundColor: theme.surface,
+                      color: theme.darkText,
                       borderColor: theme.lightGray,
-                      borderWidth: 1,
                     },
                   ]}
-                  onPress={() => setMode(option.value)}
-                >
-                  <Text
-                    style={[
-                      styles.themeButtonText,
-                      {
-                        color: mode === option.value ? theme.white : theme.darkText,
-                      },
-                    ]}
-                  >
-                    {option.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+                  value={rulesText}
+                  onChangeText={setRulesText}
+                  placeholder="مثال: سعر الذهب يتغير يومياً حسب السوق العالمي..."
+                  placeholderTextColor={theme.lightText}
+                  multiline
+                  numberOfLines={5}
+                  textAlign="right"
+                />
+              </View>
             </View>
-          </View>
 
-          <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: theme.goldPrimary }]}>
-              إعدادات الأسعار
-            </Text>
-
-            <View style={styles.inputContainer}>
-              <Text style={[styles.label, { color: theme.darkText }]}>
-                هامش الشراء (ج.م)
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, { color: theme.goldPrimary }]}>
+                روابط السوشيال ميديا
               </Text>
-              <TextInput
-                style={[
-                  styles.input,
-                  {
-                    backgroundColor: theme.surface,
-                    color: theme.darkText,
-                    borderColor: theme.lightGray,
-                  },
-                ]}
-                value={buyMargin}
-                onChangeText={setBuyMargin}
-                placeholder="50"
-                placeholderTextColor={theme.lightText}
-                keyboardType="numeric"
-                textAlign="right"
-              />
+
+              <View style={styles.inputContainer}>
+                <Text style={[styles.label, { color: theme.darkText }]}>WhatsApp</Text>
+                <TextInput
+                  style={[
+                    styles.input,
+                    {
+                      backgroundColor: theme.surface,
+                      color: theme.darkText,
+                      borderColor: theme.lightGray,
+                    },
+                  ]}
+                  value={whatsapp}
+                  onChangeText={setWhatsapp}
+                  placeholder="https://wa.me/201234567890"
+                  placeholderTextColor={theme.lightText}
+                  keyboardType="url"
+                  textAlign="right"
+                />
+              </View>
+
+              <View style={styles.inputContainer}>
+                <Text style={[styles.label, { color: theme.darkText }]}>Instagram</Text>
+                <TextInput
+                  style={[
+                    styles.input,
+                    {
+                      backgroundColor: theme.surface,
+                      color: theme.darkText,
+                      borderColor: theme.lightGray,
+                    },
+                  ]}
+                  value={instagram}
+                  onChangeText={setInstagram}
+                  placeholder="https://instagram.com/stella_gold"
+                  placeholderTextColor={theme.lightText}
+                  keyboardType="url"
+                  textAlign="right"
+                />
+              </View>
+
+              <View style={styles.inputContainer}>
+                <Text style={[styles.label, { color: theme.darkText }]}>TikTok</Text>
+                <TextInput
+                  style={[
+                    styles.input,
+                    {
+                      backgroundColor: theme.surface,
+                      color: theme.darkText,
+                      borderColor: theme.lightGray,
+                    },
+                  ]}
+                  value={tiktok}
+                  onChangeText={setTiktok}
+                  placeholder="https://tiktok.com/@stella_gold"
+                  placeholderTextColor={theme.lightText}
+                  keyboardType="url"
+                  textAlign="right"
+                />
+              </View>
+
+              <View style={styles.inputContainer}>
+                <Text style={[styles.label, { color: theme.darkText }]}>Facebook</Text>
+                <TextInput
+                  style={[
+                    styles.input,
+                    {
+                      backgroundColor: theme.surface,
+                      color: theme.darkText,
+                      borderColor: theme.lightGray,
+                    },
+                  ]}
+                  value={facebook}
+                  onChangeText={setFacebook}
+                  placeholder="https://facebook.com/stella_gold"
+                  placeholderTextColor={theme.lightText}
+                  keyboardType="url"
+                  textAlign="right"
+                />
+              </View>
             </View>
 
-            <View style={styles.inputContainer}>
-              <Text style={[styles.label, { color: theme.darkText }]}>
-                هامش البيع (ج.م)
-              </Text>
-              <TextInput
-                style={[
-                  styles.input,
-                  {
-                    backgroundColor: theme.surface,
-                    color: theme.darkText,
-                    borderColor: theme.lightGray,
-                  },
-                ]}
-                value={sellMargin}
-                onChangeText={setSellMargin}
-                placeholder="30"
-                placeholderTextColor={theme.lightText}
-                keyboardType="numeric"
-                textAlign="right"
-              />
-            </View>
+            <PrimaryButton
+              title="حفظ الإعدادات"
+              onPress={handleSave}
+              loading={saving}
+              style={styles.button}
+            />
 
-            <View style={styles.inputContainer}>
-              <Text style={[styles.label, { color: theme.darkText }]}>
-                مصنعية الجرام (ج.م)
-              </Text>
-              <TextInput
-                style={[
-                  styles.input,
-                  {
-                    backgroundColor: theme.surface,
-                    color: theme.darkText,
-                    borderColor: theme.lightGray,
-                  },
-                ]}
-                value={makingFee}
-                onChangeText={setMakingFee}
-                placeholder="100"
-                placeholderTextColor={theme.lightText}
-                keyboardType="numeric"
-                textAlign="right"
-              />
-            </View>
+            <PrimaryButton title="تسجيل الخروج" onPress={handleSignOut} variant="outline" />
           </View>
-
-          <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: theme.goldPrimary }]}>
-              قواعد الذهب
-            </Text>
-
-            <View style={styles.inputContainer}>
-              <Text style={[styles.label, { color: theme.darkText }]}>
-                نص القواعد والملاحظات
-              </Text>
-              <TextInput
-                style={[
-                  styles.input,
-                  styles.textArea,
-                  {
-                    backgroundColor: theme.surface,
-                    color: theme.darkText,
-                    borderColor: theme.lightGray,
-                  },
-                ]}
-                value={rulesText}
-                onChangeText={setRulesText}
-                placeholder="مثال: سعر الذهب يتغير يومياً حسب السوق العالمي..."
-                placeholderTextColor={theme.lightText}
-                multiline
-                numberOfLines={5}
-                textAlign="right"
-              />
-            </View>
-          </View>
-
-          <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: theme.goldPrimary }]}>
-              روابط السوشيال ميديا
-            </Text>
-
-            <View style={styles.inputContainer}>
-              <Text style={[styles.label, { color: theme.darkText }]}>WhatsApp</Text>
-              <TextInput
-                style={[
-                  styles.input,
-                  {
-                    backgroundColor: theme.surface,
-                    color: theme.darkText,
-                    borderColor: theme.lightGray,
-                  },
-                ]}
-                value={whatsapp}
-                onChangeText={setWhatsapp}
-                placeholder="https://wa.me/201234567890"
-                placeholderTextColor={theme.lightText}
-                keyboardType="url"
-                textAlign="right"
-              />
-            </View>
-
-            <View style={styles.inputContainer}>
-              <Text style={[styles.label, { color: theme.darkText }]}>Instagram</Text>
-              <TextInput
-                style={[
-                  styles.input,
-                  {
-                    backgroundColor: theme.surface,
-                    color: theme.darkText,
-                    borderColor: theme.lightGray,
-                  },
-                ]}
-                value={instagram}
-                onChangeText={setInstagram}
-                placeholder="https://instagram.com/stella_gold"
-                placeholderTextColor={theme.lightText}
-                keyboardType="url"
-                textAlign="right"
-              />
-            </View>
-
-            <View style={styles.inputContainer}>
-              <Text style={[styles.label, { color: theme.darkText }]}>TikTok</Text>
-              <TextInput
-                style={[
-                  styles.input,
-                  {
-                    backgroundColor: theme.surface,
-                    color: theme.darkText,
-                    borderColor: theme.lightGray,
-                  },
-                ]}
-                value={tiktok}
-                onChangeText={setTiktok}
-                placeholder="https://tiktok.com/@stella_gold"
-                placeholderTextColor={theme.lightText}
-                keyboardType="url"
-                textAlign="right"
-              />
-            </View>
-
-            <View style={styles.inputContainer}>
-              <Text style={[styles.label, { color: theme.darkText }]}>Facebook</Text>
-              <TextInput
-                style={[
-                  styles.input,
-                  {
-                    backgroundColor: theme.surface,
-                    color: theme.darkText,
-                    borderColor: theme.lightGray,
-                  },
-                ]}
-                value={facebook}
-                onChangeText={setFacebook}
-                placeholder="https://facebook.com/stella_gold"
-                placeholderTextColor={theme.lightText}
-                keyboardType="url"
-                textAlign="right"
-              />
-            </View>
-          </View>
-
-          <PrimaryButton
-            title="حفظ الإعدادات"
-            onPress={handleSave}
-            loading={saving}
-            style={styles.button}
-          />
-
-          <PrimaryButton title="تسجيل الخروج" onPress={handleSignOut} variant="outline" />
-        </View>
+          </ScrollView>
       </KeyboardAvoidingView>
-    </ScreenContainer>
+    </SafeAreaView>
   );
 };
 

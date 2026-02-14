@@ -8,6 +8,7 @@ import { SettingsScreen } from '../screens/admin/SettingsScreen';
 import { useTheme } from '../context/ThemeContext';
 import { fontSizes } from '../theme/colors';
 import { Package, Settings } from 'lucide-react-native';
+import { GoldPricingSettingsScreen } from '../screens/admin/GoldPricingSettingsScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -19,6 +20,13 @@ const ProductStack = () => {
         headerShown: false,
       }}
     >
+      <Stack.Screen
+        name="GoldPricingSettings"
+        component={GoldPricingSettingsScreen}
+        options={{
+          title: 'إعدادات أسعار الذهب',
+        }}
+      />
       <Stack.Screen name="ProductList" component={ProductManagementScreen} />
       <Stack.Screen name="AddProduct" component={AddProductScreen} />
     </Stack.Navigator>

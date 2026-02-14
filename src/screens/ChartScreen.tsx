@@ -9,6 +9,7 @@ import { spacing, fontSizes, fontWeights, borderRadius } from '../theme/colors';
 import type { HistoryResponse } from '../types';
 import { ThemeToggle } from '@/src/components/ThemeToggle';
 import { useTheme } from '../context/ThemeContext';
+import { SafeAreaView } from 'react-native-safe-area-context'
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -90,7 +91,7 @@ export const ChartScreen: React.FC = () => {
   };
 
   return (
-      <ScreenContainer>
+      <SafeAreaView style={{ flex: 1, backgroundColor: `${theme.background}`}}>
         <View style={[styles.container, { backgroundColor: theme.background }]}>
           <View style={styles.header}>
             <ThemeToggle />
@@ -170,7 +171,7 @@ export const ChartScreen: React.FC = () => {
             </View>
           </View>
         </View>
-      </ScreenContainer>
+      </SafeAreaView>
   );
 };
 

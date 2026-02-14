@@ -10,7 +10,7 @@ import { getSettings } from '../services/api';
 import { useCurrency } from '../context/CurrencyContext';
 import { useTheme } from '../context/ThemeContext';
 import { spacing, fontSizes, fontWeights, borderRadius } from '../theme/colors';
-import { type Currency } from '../theme/currency';
+import { SafeAreaView } from 'react-native-safe-area-context'
 
 export const PricesScreen: React.FC = () => {
   const { theme } = useTheme();
@@ -45,7 +45,7 @@ export const PricesScreen: React.FC = () => {
   }
 
   return (
-    <ScreenContainer scrollable={true}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: `${theme.background}`}}>
       <ScrollView style={[styles.container, { backgroundColor: theme.background }]}>
         <View style={styles.content}>
           <View style={styles.headerRow}>
@@ -54,61 +54,35 @@ export const PricesScreen: React.FC = () => {
             <View style={{ width: 40 }} />
           </View>
 
-          <View style={styles.currencySelectorContainer}>
-            <Text style={[styles.currencyLabel, { color: theme.darkText }]}>العملة:</Text>
-            <View style={styles.currencyButtons}>
-              {(['USD', 'JOD', 'ILS'] as Currency[]).map((curr) => (
-                <TouchableOpacity
-                  key={curr}
-                  style={[
-                    styles.currencyButton,
-                    currency === curr && {
-                      backgroundColor: theme.goldPrimary,
-                    },
-                    currency !== curr && {
-                      backgroundColor: theme.surface,
-                      borderColor: theme.lightGray,
-                      borderWidth: 1,
-                    },
-                  ]}
-                  onPress={() => setCurrency(curr)}
-                >
-                  <Text
-                    style={[
-                      styles.currencyButtonText,
-                      {
-                        color: currency === curr ? theme.white : theme.darkText,
-                      },
-                    ]}
-                  >
-                    {curr}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
 
           {error && <ErrorMessage message={error} />}
 
           <View style={styles.pricesContainer}>
             <GoldPriceCard
-              title="سعر الذهب عيار 21 للشراء"
-              priceWithoutMaking={65}
-              priceWithMaking={67}
-              pricePerLira={520}
+              title="سعر الذهب عيار 21 للشراء مع مصنعية"
+              basePriceUsd={67}
             />
             <GoldPriceCard
-              title="سعر الذهب عيار 21 للبيع"
-              priceWithoutMaking={64}
-              priceWithMaking={66}
-              pricePerLira={510}
+              title="سعر الذهب عيار 21 للشراء بدون مصنعية"
+              basePriceUsd={65}
             />
             <GoldPriceCard
-              title="سعر الذهب عيار 18"
-              priceWithoutMaking={56}
-              priceWithMaking={58}
-              pricePerLira={445}
+              title="سعر الذهب عيار 21 للبيع بدون مصنعية"
+              basePriceUsd={64}
             />
+            <GoldPriceCard
+              title="ليرة رشادي 7 غم مختوم وزارة"
+              basePriceUsd={56}
+            />
+            <GoldPriceCard
+              title="ليرة انجليزي 8 غم مختوم وزارة"
+              basePriceUsd={56}
+            />
+            <GoldPriceCard
+              title="اونصة محلي 31.1 غم مختوم وزارة"
+              basePriceUsd={2000}
+            />
+            {/* ...etc */}
           </View>
 
           {rulesText && (
@@ -119,7 +93,7 @@ export const PricesScreen: React.FC = () => {
           )}
         </View>
       </ScrollView>
-    </ScreenContainer>
+    </SafeAreaView>
   );
 };
 

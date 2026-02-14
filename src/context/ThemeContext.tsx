@@ -1,4 +1,3 @@
-// src/context/ThemeContext.tsx
 import React, {createContext, useContext, useState, useEffect,} from 'react';
 import { useColorScheme } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -69,9 +68,7 @@ const darkTheme: Theme = {
   success: colors.success,
 };
 
-export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({
-                                                                         children,
-                                                                       }) => {
+export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children, }) => {
   const systemColorScheme = useColorScheme();
   const [mode, setModeState] = useState<ThemeMode>('light');
   const [isLoading, setIsLoading] = useState(true);
@@ -83,11 +80,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({
   const loadThemeMode = async () => {
     try {
       const savedMode = await AsyncStorage.getItem(THEME_MODE_KEY);
-      if (
-          savedMode === 'light' ||
-          savedMode === 'dark' ||
-          savedMode === 'system'
-      ) {
+      if (savedMode === 'light' || savedMode === 'dark' || savedMode === 'system') {
         setModeState(savedMode as ThemeMode);
       }
     } catch (error) {
