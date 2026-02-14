@@ -11,6 +11,7 @@ import { useTheme } from '../context/ThemeContext';
 import { spacing, fontSizes, fontWeights, borderRadius } from '../theme/colors';
 import type { Offer, Settings } from '../types';
 import { Facebook, Instagram, MessageCircle } from 'lucide-react-native';
+import { SafeAreaView } from 'react-native-safe-area-context'
 
 export const OffersScreen: React.FC = () => {
   const { theme } = useTheme();
@@ -55,7 +56,7 @@ export const OffersScreen: React.FC = () => {
   }
 
   return (
-    <ScreenContainer scrollable={false}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: `${theme.background}`}}>
       <View style={[styles.container, { backgroundColor: theme.background }]}>
         <View style={styles.header}>
           <Text style={[styles.title, { color: theme.darkText }]}>العروض الخاصة</Text>
@@ -111,7 +112,7 @@ export const OffersScreen: React.FC = () => {
           </View>
         )}
       </View>
-    </ScreenContainer>
+    </SafeAreaView>
   );
 };
 
