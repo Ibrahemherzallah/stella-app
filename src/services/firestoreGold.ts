@@ -66,10 +66,9 @@ export async function updateItem(id: string, patch: Partial<ProductConfig>) {
   });
 }
 
-export async function removeItem(id: string) {
+export const deleteItem = async (id: string) => {
   await deleteDoc(doc(db, 'items', id));
-}
-
+};
 // ---------------- IMAGE UPLOAD ----------------
 export async function uploadItemImage(localUri: string): Promise<string> {
   const res = await fetch(localUri);

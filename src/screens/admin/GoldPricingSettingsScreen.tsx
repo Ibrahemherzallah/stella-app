@@ -1,12 +1,27 @@
-import React, { useEffect, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+  Alert,
+  Image,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
-import { colors, spacing, borderRadius, fontSizes, fontWeights } from '../../theme/colors';
+import { spacing, borderRadius, fontSizes, fontWeights } from '../../theme/colors';
 import { useTheme } from '../../context/ThemeContext';
 import { ThemeToggle } from '../../components/ThemeToggle';
 import { PrimaryButton } from '../../components/PrimaryButton';
-import { getTodaySettings, saveTodaySettings, listItems, updateItem, } from '../../services/firestoreGold';
+import {
+  getTodaySettings,
+  saveTodaySettings,
+  listItems,
+  updateItem,
+  deleteItem, // ✅ make sure you export this from services/firestoreGold
+} from '../../services/firestoreGold';
 
 type ProductConfig = {
   id: string;
@@ -35,6 +50,7 @@ const EMPTY_SETTINGS: GoldPricingSettings = {
 export const GoldPricingSettingsScreen: React.FC = () => {
   const { theme } = useTheme();
   const navigation = useNavigation();
+
   const [settings, setSettings] = useState<GoldPricingSettings>(EMPTY_SETTINGS);
   const [products, setProducts] = useState<ProductConfig[]>([]);
   const [loading, setLoading] = useState(false);
@@ -65,13 +81,14 @@ export const GoldPricingSettingsScreen: React.FC = () => {
 
   const handleChangeProductFee = (id: string, value: string) => {
     const num = parseFloat(value) || 0;
-    setProducts((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, makingFeePerGramUsd: num } : p))
-    );
+    setProducts((prev) => prev.map((p) => (p.id === id ? { ...p, makingFeePerGramUsd: num } : p)));
   };
 
-  const finalOunceUsd = settings.goldOunceUsd + settings.premiumOunceUsd;
-  const baseGramUsd = finalOunceUsd / 31.1 || 0;
+  const { finalOunceUsd, baseGramUsd } = useMemo(() => {
+    const finalOunce = (settings.goldOunceUsd || 0) + (settings.premiumOunceUsd || 0);
+    const baseGram = finalOunce / 31.1 || 0;
+    return { finalOunceUsd: finalOunce, baseGramUsd: baseGram };
+  }, [settings.goldOunceUsd, settings.premiumOunceUsd]);
 
   const handleSave = async () => {
     try {
@@ -82,9 +99,7 @@ export const GoldPricingSettingsScreen: React.FC = () => {
 
       // 2) Save each product's fee changes (only fee here)
       await Promise.all(
-        products.map((p) =>
-          updateItem(p.id, { makingFeePerGramUsd: p.makingFeePerGramUsd })
-        )
+        products.map((p) => updateItem(p.id, { makingFeePerGramUsd: p.makingFeePerGramUsd }))
       );
 
       Alert.alert('تم الحفظ', 'تم حفظ الإعدادات والمنتجات بنجاح');
@@ -94,6 +109,31 @@ export const GoldPricingSettingsScreen: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleDeleteItem = (product: ProductConfig) => {
+    Alert.alert('حذف الصنف', `هل أنت متأكد أنك تريد حذف "${product.title}"؟`, [
+      { text: 'إلغاء', style: 'cancel' },
+      {
+        text: 'حذف',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await deleteItem(product.id);
+            setProducts((prev) => prev.filter((p) => p.id !== product.id));
+          } catch (e) {
+            console.error(e);
+            Alert.alert('خطأ', 'فشل حذف الصنف');
+          }
+        },
+      },
+    ]);
+  };
+
+  const goToEdit = (productId: string) => {
+    // ✅ You should have a screen named "EditGoldItem"
+    // and it reads route params: { itemId }
+    navigation.navigate('EditGoldItem' as never, { itemId: productId } as never);
   };
 
   if (initialLoading) {
@@ -106,33 +146,54 @@ export const GoldPricingSettingsScreen: React.FC = () => {
     );
   }
 
-  console.log("products is : " ,products )
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }}>
-      <ScrollView style={{ flex: 1, backgroundColor: theme.background }} contentContainerStyle={{ paddingBottom: spacing.xl }}>
+      <ScrollView
+        style={{ flex: 1, backgroundColor: theme.background }}
+        contentContainerStyle={{ paddingBottom: spacing.xl }}
+      >
         <View style={{ padding: spacing.md }}>
           <View style={{ marginBottom: spacing.lg }}>
             <ThemeToggle />
-            <Text style={{ color: theme.darkText, fontSize: fontSizes.xxl, fontWeight: '700',textAlign: 'center' }}>
+            <Text
+              style={{
+                color: theme.darkText,
+                fontSize: fontSizes.xxl,
+                fontWeight: '700',
+                textAlign: 'center',
+              }}
+            >
               إعدادات أسعار الذهب
             </Text>
           </View>
 
           {/* GLOBAL SETTINGS */}
           <View style={{ marginTop: spacing.lg }}>
-            <Text style={{ color: theme.goldPrimary, fontSize: 18, fontWeight: '700' }}>إعدادات عامة</Text>
+            <Text style={{ color: theme.goldPrimary, fontSize: 18, fontWeight: '700' }}>
+              إعدادات عامة
+            </Text>
 
-            <Text style={{ marginTop: spacing.md, color: theme.darkText }}>سعر الذهب في البورصة (أونصة / دولار)</Text>
+            <Text style={{ marginTop: spacing.md, color: theme.darkText }}>
+              سعر الذهب في البورصة (أونصة / دولار)
+            </Text>
             <TextInput
-              style={{ borderWidth: 1, borderColor: theme.lightGray, padding: 12, borderRadius: 10, color: theme.darkText, marginTop: 6 }}
+              style={[
+                styles.inputBox,
+                { borderColor: theme.lightGray, color: theme.darkText },
+              ]}
               keyboardType="numeric"
               value={String(settings.goldOunceUsd)}
               onChangeText={(v) => handleChangeField('goldOunceUsd', v)}
             />
 
-            <Text style={{ marginTop: spacing.md, color: theme.darkText }}>الزيادة على الأونصة (Premium)</Text>
+            <Text style={{ marginTop: spacing.md, color: theme.darkText }}>
+              الزيادة على الأونصة (Premium)
+            </Text>
             <TextInput
-              style={{ borderWidth: 1, borderColor: theme.lightGray, padding: 12, borderRadius: 10, color: theme.darkText, marginTop: 6 }}
+              style={[
+                styles.inputBox,
+                { borderColor: theme.lightGray, color: theme.darkText },
+              ]}
               keyboardType="numeric"
               value={String(settings.premiumOunceUsd)}
               onChangeText={(v) => handleChangeField('premiumOunceUsd', v)}
@@ -140,7 +201,10 @@ export const GoldPricingSettingsScreen: React.FC = () => {
 
             <Text style={{ marginTop: spacing.md, color: theme.darkText }}>USD → ILS</Text>
             <TextInput
-              style={{ borderWidth: 1, borderColor: theme.lightGray, padding: 12, borderRadius: 10, color: theme.darkText, marginTop: 6 }}
+              style={[
+                styles.inputBox,
+                { borderColor: theme.lightGray, color: theme.darkText },
+              ]}
               keyboardType="numeric"
               value={String(settings.usdToIls)}
               onChangeText={(v) => handleChangeField('usdToIls', v)}
@@ -148,7 +212,10 @@ export const GoldPricingSettingsScreen: React.FC = () => {
 
             <Text style={{ marginTop: spacing.md, color: theme.darkText }}>USD → JOD</Text>
             <TextInput
-              style={{ borderWidth: 1, borderColor: theme.lightGray, padding: 12, borderRadius: 10, color: theme.darkText, marginTop: 6 }}
+              style={[
+                styles.inputBox,
+                { borderColor: theme.lightGray, color: theme.darkText },
+              ]}
               keyboardType="numeric"
               value={String(settings.usdToJod)}
               onChangeText={(v) => handleChangeField('usdToJod', v)}
@@ -164,38 +231,95 @@ export const GoldPricingSettingsScreen: React.FC = () => {
 
           {/* PRODUCTS */}
           <View style={{ marginTop: spacing.xl }}>
-            <Text style={{ color: theme.goldPrimary, fontSize: 18, fontWeight: '700' }}>المصنعية لكل صنف</Text>
+            <Text style={{ color: theme.goldPrimary, fontSize: 18, fontWeight: '700' }}>
+              المصنعية لكل صنف
+            </Text>
 
             {products.map((product) => {
-              const finalGramUsd = baseGramUsd + product.makingFeePerGramUsd;
-              const priceUsd = finalGramUsd * product.weightGrams;
-              const priceJod = priceUsd * settings.usdToJod;
-              const priceIls = priceUsd * settings.usdToIls;
+              const finalGramUsd = baseGramUsd + (product.makingFeePerGramUsd || 0);
+              const priceUsd = finalGramUsd * (product.weightGrams || 0);
+              const priceJod = priceUsd * (settings.usdToJod || 0);
+              const priceIls = priceUsd * (settings.usdToIls || 0);
 
               return (
-                <View key={product.id} style={{ marginTop: spacing.lg, padding: 14, borderRadius: 14, backgroundColor: theme.surface }}>
-                  <Text style={{ color: theme.darkText, fontWeight: '700', textAlign: 'right' }}>
-                    {product.title}
-                  </Text>
-                  <Text style={{ color: theme.lightText, textAlign: 'right', marginTop: 4 }}>
-                    الوزن: {product.weightGrams} غرام
-                  </Text>
+                <View
+                  key={product.id}
+                  style={[
+                    styles.productCard,
+                    { backgroundColor: theme.surface, borderColor: theme.lightGray },
+                  ]}
+                >
+                  {/* Title + actions */}
+                  <View style={styles.titleRow}>
+                    <View style={styles.actionsRow}>
+                      <TouchableOpacity
+                        onPress={() => goToEdit(product.id)}
+                        style={[styles.actionBtn, { backgroundColor: theme.lightGray }]}
+                        activeOpacity={0.85}
+                      >
+                        <Text style={[styles.actionText, { color: theme.darkText }]}>تعديل</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        onPress={() => handleDeleteItem(product)}
+                        style={[styles.actionBtn, { backgroundColor: '#ffdddd' }]}
+                        activeOpacity={0.85}
+                      >
+                        <Text style={[styles.actionText, { color: '#b00020' }]}>حذف</Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: theme.darkText, fontWeight: '700', textAlign: 'right' }}>
+                        {product.title}
+                      </Text>
+                      <Text style={{ color: theme.lightText, textAlign: 'right', marginTop: 4 }}>
+                        الوزن: {product.weightGrams} غرام
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* ✅ Image */}
+                  {product.imageUrl ? (
+                    <Image
+                      source={{ uri: product.imageUrl }}
+                      style={styles.productImage}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <Image
+                      source={require('../../../assets/images/gold1.jpg')}
+                      style={styles.productImage}
+                      resizeMode="cover"
+                    />
+                  )}
 
                   <Text style={{ color: theme.darkText, marginTop: spacing.md, textAlign: 'right' }}>
                     المصنعية لكل غرام (USD)
                   </Text>
                   <TextInput
-                    style={{ borderWidth: 1, borderColor: theme.lightGray, padding: 12, borderRadius: 10, color: theme.darkText, marginTop: 6 }}
+                    style={[
+                      styles.inputBox,
+                      { borderColor: theme.lightGray, color: theme.darkText },
+                    ]}
                     keyboardType="numeric"
-                    value={String(product.makingFeePerGramUsd)}
+                    value={String(product.makingFeePerGramUsd ?? 0)}
                     onChangeText={(v) => handleChangeProductFee(product.id, v)}
                   />
 
                   <View style={{ marginTop: spacing.md }}>
-                    <Text style={{ color: theme.goldPrimary, fontWeight: '700', textAlign: 'right' }}>السعر النهائي:</Text>
-                    <Text style={{ color: theme.darkText, textAlign: 'right' }}>{priceUsd.toFixed(2)} $</Text>
-                    <Text style={{ color: theme.darkText, textAlign: 'right' }}>{priceJod.toFixed(2)} JOD</Text>
-                    <Text style={{ color: theme.darkText, textAlign: 'right' }}>{priceIls.toFixed(2)} ₪</Text>
+                    <Text style={{ color: theme.goldPrimary, fontWeight: '700', textAlign: 'right' }}>
+                      السعر النهائي:
+                    </Text>
+                    <Text style={{ color: theme.darkText, textAlign: 'right' }}>
+                      {priceUsd.toFixed(2)} $
+                    </Text>
+                    <Text style={{ color: theme.darkText, textAlign: 'right' }}>
+                      {priceJod.toFixed(2)} JOD
+                    </Text>
+                    <Text style={{ color: theme.darkText, textAlign: 'right' }}>
+                      {priceIls.toFixed(2)} ₪
+                    </Text>
                   </View>
                 </View>
               );
@@ -222,78 +346,48 @@ export const GoldPricingSettingsScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    padding: spacing.md,
-  },
-  title: {
-    fontSize: fontSizes.xxl,
-    fontWeight: fontWeights.bold,
-    marginBottom: spacing.lg,
-    textAlign: 'center',
-  },
-  card: {
-    borderRadius: borderRadius.lg,
-    padding: spacing.md,
-    marginBottom: spacing.lg,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    elevation: 3,
-  },
-  cardTitle: {
-    fontSize: fontSizes.lg,
-    fontWeight: fontWeights.semiBold,
-    marginBottom: spacing.md,
-    textAlign: 'right',
-  },
-  field: {
-    marginBottom: spacing.md,
-  },
-  fieldRow: {
-    flexDirection: 'row',
-    gap: spacing.md,
-    marginBottom: spacing.md,
-  },
-  fieldHalf: {
-    flex: 1,
-  },
-  label: {
-    fontSize: fontSizes.sm,
-    marginBottom: spacing.xs,
-    textAlign: 'right',
-  },
-  input: {
+  inputBox: {
     borderWidth: 1,
-    borderRadius: borderRadius.md,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    textAlign: 'right',
-    fontSize: fontSizes.md,
-  },
-  infoText: {
-    fontSize: fontSizes.sm,
-    marginTop: spacing.xs,
+    padding: 12,
+    borderRadius: 10,
+    marginTop: 6,
     textAlign: 'right',
   },
-  productBlock: {
-    marginBottom: spacing.lg,
-    borderTopWidth: 1,
-    borderTopColor: '#ddd3',
-    paddingTop: spacing.md,
+
+  productCard: {
+    marginTop: spacing.lg,
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
   },
-  productTitle: {
-    fontSize: fontSizes.md,
-    fontWeight: fontWeights.semiBold,
-    marginBottom: spacing.xs,
-    textAlign: 'right',
-  },
-  previewRow: {
+
+  titleRow: {
     flexDirection: 'row',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
-    marginTop: spacing.sm,
+    gap: 10,
   },
-  previewText: {
-    fontSize: fontSizes.sm,
-    textAlign: 'right',
+
+  actionsRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+
+  actionBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+  },
+
+  actionText: {
+    fontWeight: '700',
+    fontSize: 13,
+  },
+
+  productImage: {
+    width: '100%',
+    height: 160,
+    borderRadius: 12,
+    marginTop: 10,
   },
 });
