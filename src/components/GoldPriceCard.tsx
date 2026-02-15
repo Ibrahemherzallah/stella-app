@@ -16,14 +16,18 @@ const CURRENCY_ROWS: { code: CurrencyCode; label: string }[] = [
   { code: 'ILS', label: 'بالشيكل:' },
 ];
 
-export const GoldPriceCard: React.FC<GoldPriceCardProps> = ({ title, basePriceUsd, }) => {
+export const GoldPriceCard: React.FC<GoldPriceCardProps> = ({ title, basePriceUsd,imageUrl }) => {
   const { theme } = useTheme();
 
   return (
     <View style={[styles.container, { backgroundColor: theme.surface, shadowColor: theme.darkText },]}>
       <View style={styles.imageContainer}>
         <Image
-          source={require('../../assets/images/gold1.jpg')}
+          source={
+            imageUrl
+              ? { uri: imageUrl }
+              : require('../../assets/images/gold1.jpg') // fallback image
+          }
           style={styles.image}
         />
       </View>
