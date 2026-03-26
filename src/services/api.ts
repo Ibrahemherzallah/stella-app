@@ -155,9 +155,7 @@ export const getOffers = async (): Promise<Offer[]> => {
   return response.data;
 };
 
-export const login = async (
-  credentials: LoginRequest
-): Promise<LoginResponse> => {
+export const login = async (credentials: LoginRequest): Promise<LoginResponse> => {
   if (USE_MOCK) {
     return new Promise((resolve, reject) => {
       setTimeout(() => {
@@ -193,37 +191,31 @@ export const getAdminProducts = async (): Promise<AdminProduct[]> => {
   return response.data;
 };
 
-export const createProduct = async (
-  product: AdminProduct
-): Promise<AdminProduct> => {
+export const createProduct = async (product: Omit<AdminProduct, 'id'>): Promise<AdminProduct> => {
+  console.log("The product is : " , product);
   if (USE_MOCK) {
     return new Promise((resolve) => {
-      const newProduct = { ...product, id: Date.now().toString() };
+      const newProduct: AdminProduct = { ...product, id: Date.now().toString() };
       mockAdminProducts.push(newProduct);
       setTimeout(() => resolve(newProduct), 500);
     });
   }
+
   const response = await api.post<AdminProduct>('/admin/products', product);
   return response.data;
 };
 
-export const updateProduct = async (
-  id: string,
-  product: AdminProduct
-): Promise<AdminProduct> => {
+export const updateProduct = async (id: string, product: Partial<Omit<AdminProduct, 'id'>>): Promise<AdminProduct> => {
   if (USE_MOCK) {
-    return new Promise((resolve) => {
-      const index = mockAdminProducts.findIndex((p) => p.id === id);
-      if (index !== -1) {
-        mockAdminProducts[index] = { ...product, id };
-      }
-      setTimeout(() => resolve({ ...product, id }), 500);
+    return new Promise((resolve, reject) => {
+      const idx = mockAdminProducts.findIndex((p) => p.id === id);
+      if (idx === -1) return reject(new Error('Not found'));
+      mockAdminProducts[idx] = { ...mockAdminProducts[idx], ...product, id };
+      setTimeout(() => resolve(mockAdminProducts[idx]), 500);
     });
   }
-  const response = await api.put<AdminProduct>(
-    `/admin/products/${id}`,
-    product
-  );
+
+  const response = await api.put<AdminProduct>(`/admin/products/${id}`, product);
   return response.data;
 };
 

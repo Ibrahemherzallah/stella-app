@@ -2,32 +2,36 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+
 import { ProductManagementScreen } from '../screens/admin/ProductManagementScreen';
 import { AddProductScreen } from '../screens/admin/AddProductScreen';
 import { SettingsScreen } from '../screens/admin/SettingsScreen';
+import { GoldPricingSettingsScreen } from '../screens/admin/GoldPricingSettingsScreen';
+
 import { useTheme } from '../context/ThemeContext';
 import { fontSizes } from '../theme/colors';
-import { Package, Settings } from 'lucide-react-native';
-import { GoldPricingSettingsScreen } from '../screens/admin/GoldPricingSettingsScreen';
+import { Package, Settings, ClipboardList } from 'lucide-react-native';
+import { AddGoldItemScreen } from '@/src/screens/admin/AddGoldItemScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 
-const ProductStack = () => {
+/** Tab 1: Products stack (example: gold pricing + add/edit) */
+const ProductsStack = () => {
   return (
-    <Stack.Navigator
-      screenOptions={{
-        headerShown: false,
-      }}
-    >
-      <Stack.Screen
-        name="GoldPricingSettings"
-        component={GoldPricingSettingsScreen}
-        options={{
-          title: 'إعدادات أسعار الذهب',
-        }}
-      />
-      <Stack.Screen name="ProductList" component={ProductManagementScreen} />
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="GoldPricingSettings" component={GoldPricingSettingsScreen} />
+      <Stack.Screen name="AddProduct" component={AddProductScreen} />
+      <Stack.Screen name="AddGoldItem" component={AddGoldItemScreen} />
+    </Stack.Navigator>
+  );
+};
+
+/** Tab 2: Product management stack (list + add/edit) */
+const ProductManagementStack = () => {
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="ProductManagement" component={ProductManagementScreen} />
       <Stack.Screen name="AddProduct" component={AddProductScreen} />
     </Stack.Navigator>
   );
@@ -56,15 +60,25 @@ export const AdminStackNavigator: React.FC = () => {
       }}
     >
       <Tab.Screen
-        name="Products"
-        component={ProductStack}
+        name="ProductsTab"
+        component={ProductsStack}
         options={{
-          tabBarLabel: 'المنتجات',
+          tabBarLabel: 'الذهب',
           tabBarIcon: ({ color, size }) => <Package size={size} color={color} />,
         }}
       />
+
       <Tab.Screen
-        name="Settings"
+        name="ManagementTab"
+        component={ProductManagementStack}
+        options={{
+          tabBarLabel: 'إدارة المنتجات',
+          tabBarIcon: ({ color, size }) => <ClipboardList size={size} color={color} />,
+        }}
+      />
+
+      <Tab.Screen
+        name="SettingsTab"
         component={SettingsScreen}
         options={{
           tabBarLabel: 'الإعدادات',

@@ -13,6 +13,17 @@ import type { Offer, Settings } from '../types';
 import { Facebook, Instagram, MessageCircle } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context'
 
+type Offer = {
+  id: string;
+  name: string;
+  karat: string;
+  weightGrams: number;
+  originalPriceIls: number;
+  discountedPriceIls: number;
+  imageUrl: string;
+  isActive: boolean;
+};
+
 export const OffersScreen: React.FC = () => {
   const { theme } = useTheme();
   const [offers, setOffers] = useState<Offer[]>([]);
@@ -27,11 +38,26 @@ export const OffersScreen: React.FC = () => {
   const fetchData = async () => {
     try {
       setError(null);
-      const [offersData, settingsData] = await Promise.all([
-        getOffers(),
+      setLoading(true);
+
+      const [products, settingsData] = await Promise.all([
+        listActiveOffers(),
         getSettings(),
       ]);
-      setOffers(offersData.filter((offer) => offer.isActive));
+
+      // map firestore products -> your OfferCard shape
+      const mapped: Offer[] = products.map((p: ProductDoc) => ({
+        id: p.id,
+        name: p.name,
+        karat: p.karat,
+        weightGrams: p.weightGrams,
+        originalPriceIls: p.originalPriceIls,
+        discountedPriceIls: p.discountedPriceIls,
+        imageUrl: p.imageUrl,
+        isActive: p.isActive,
+      }));
+
+      setOffers(mapped);
       setSettings(settingsData);
     } catch (err) {
       setError('حدث خطأ أثناء تحميل العروض');

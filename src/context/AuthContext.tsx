@@ -1,90 +1,66 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import * as SecureStore from 'expo-secure-store';
-import { login as apiLogin, setAuthToken } from '../services/api';
-import type { LoginRequest, LoginResponse } from '../types';
+import React, { createContext, useContext, useEffect, useState } from "react";
+import * as SecureStore from "expo-secure-store";
+import { onAuthStateChanged } from "firebase/auth";
+import { auth } from "../services/firebase";
+import { firebaseSignIn, firebaseLogout } from "../services/firebaseAuth";
 
 interface User {
   id: string;
   email: string;
-  name: string;
 }
 
 interface AuthContextType {
   user: User | null;
-  token: string | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  signIn: (credentials: LoginRequest) => Promise<void>;
+  signIn: (credentials: { email: string; password: string }) => Promise<void>;
   signOut: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const TOKEN_KEY = 'stella_auth_token';
-const USER_KEY = 'stella_user';
+const USER_KEY = "stella_user";
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
-  children,
-}) => {
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    loadStoredAuth();
+    const unsub = onAuthStateChanged(auth, async (fbUser) => {
+      try {
+        if (fbUser) {
+          const u = { id: fbUser.uid, email: fbUser.email || "" };
+          setUser(u);
+          await SecureStore.setItemAsync(USER_KEY, JSON.stringify(u));
+        } else {
+          setUser(null);
+          await SecureStore.deleteItemAsync(USER_KEY);
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    });
+
+    return () => unsub();
   }, []);
 
-  const loadStoredAuth = async () => {
-    try {
-      const storedToken = await SecureStore.getItemAsync(TOKEN_KEY);
-      const storedUser = await SecureStore.getItemAsync(USER_KEY);
-
-      if (storedToken && storedUser) {
-        setToken(storedToken);
-        setUser(JSON.parse(storedUser));
-        setAuthToken(storedToken);
-      }
-    } catch (error) {
-      console.error('Error loading stored auth:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const signIn = async (credentials: LoginRequest) => {
-    try {
-      const response: LoginResponse = await apiLogin(credentials);
-      setToken(response.token);
-      setUser(response.user);
-      setAuthToken(response.token);
-
-      await SecureStore.setItemAsync(TOKEN_KEY, response.token);
-      await SecureStore.setItemAsync(USER_KEY, JSON.stringify(response.user));
-    } catch (error) {
-      throw error;
-    }
+  const signIn = async ({ email, password }: { email: string; password: string }) => {
+    console.log("email is: ", email)
+    console.log("password is: ", password)
+    await firebaseSignIn(email, password);
+    // onAuthStateChanged will update user
   };
 
   const signOut = async () => {
-    try {
-      setToken(null);
-      setUser(null);
-      setAuthToken(null);
-
-      await SecureStore.deleteItemAsync(TOKEN_KEY);
-      await SecureStore.deleteItemAsync(USER_KEY);
-    } catch (error) {
-      console.error('Error signing out:', error);
-    }
+    await firebaseLogout();
   };
 
   return (
     <AuthContext.Provider
       value={{
         user,
-        token,
         isLoading,
-        isAuthenticated: !!token && !!user,
+        isAuthenticated: !!user,
         signIn,
         signOut,
       }}
@@ -95,9 +71,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 };
 
 export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error("useAuth must be used within an AuthProvider");
+  return ctx;
 };

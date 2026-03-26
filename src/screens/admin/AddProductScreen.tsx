@@ -1,17 +1,6 @@
 // src/screens/admin/AddProductScreen.tsx
-import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  StyleSheet,
-  Switch,
-  KeyboardAvoidingView,
-  Platform,
-  Alert,
-  Image,
-  TouchableOpacity,
-} from 'react-native';
+import React, { useState, useEffect, useMemo } from 'react';
+import { View, Text, TextInput, StyleSheet, Switch, KeyboardAvoidingView, Platform, Alert, Image, TouchableOpacity,ScrollView } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import { ScreenContainer } from '../../components/ScreenContainer';
@@ -20,37 +9,79 @@ import { ErrorMessage } from '../../components/ErrorMessage';
 import { useTheme } from '../../context/ThemeContext';
 import { createProduct, updateProduct } from '../../services/api';
 import { spacing, borderRadius, fontSizes, fontWeights } from '../../theme/colors';
-import type { AdminProduct } from '../../types';
 import { Camera } from 'lucide-react-native';
+import { SafeAreaView } from 'react-native-safe-area-context'
+import { uploadProductImage } from '../../services/storageProducts';
+
+// ✅ your firestore functions (adjust import path to yours)
+
+// ✅ your storage upload helper
+
+// ✅ if you already have AdminProduct type in another file, import it instead
+export type AdminProduct = {
+  id?: string;
+  name: string;
+  description?: string;
+  karat: string;
+  weightGrams: number;
+  originalPriceIls: number;
+  discountedPriceIls: number;
+  imageUrl: string;
+  isActive: boolean;
+};
+
+const sanitizeDecimal = (value: string) => {
+  let v = value.replace(/[^0-9.]/g, '');
+  const firstDot = v.indexOf('.');
+  if (firstDot !== -1) {
+    v = v.slice(0, firstDot + 1) + v.slice(firstDot + 1).replace(/\./g, '');
+  }
+  return v;
+};
+
+const parseNum = (v: string) => {
+  const n = parseFloat(v);
+  return Number.isFinite(n) ? n : 0;
+};
 
 export const AddProductScreen: React.FC = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const { theme } = useTheme();
+
   const editProduct = (route.params as any)?.product as AdminProduct | undefined;
+  const isEdit = useMemo(() => !!editProduct?.id, [editProduct?.id]);
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [karat, setKarat] = useState('');
-  const [originalPrice, setOriginalPrice] = useState('');
-  const [discountedPrice, setDiscountedPrice] = useState('');
+  const [weightGrams, setWeightGrams] = useState('');
+  const [originalPrice, setOriginalPrice] = useState(''); // ILS
+  const [discountedPrice, setDiscountedPrice] = useState(''); // ILS
+
+  // We only keep ONE image source for firestore: imageUrl
+  // imageUri is local picked image (needs upload)
   const [imageUri, setImageUri] = useState('');
   const [imageUrl, setImageUrl] = useState('');
+
   const [isActive, setIsActive] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (editProduct) {
-      setName(editProduct.name);
-      setDescription(editProduct.description || '');
-      setKarat(editProduct.karat);
-      setOriginalPrice(editProduct.originalPrice.toString());
-      setDiscountedPrice(editProduct.discountedPrice.toString());
-      setImageUri(editProduct.imageUri || '');
-      setImageUrl(editProduct.imageUrl || '');
-      setIsActive(editProduct.isActive);
-    }
+    if (!editProduct) return;
+
+    setName(editProduct.name ?? '');
+    setDescription(editProduct.description ?? '');
+    setKarat(String(editProduct.karat ?? ''));
+    setWeightGrams(String(editProduct.weightGrams ?? ''));
+
+    setOriginalPrice(String(editProduct.originalPriceIls ?? ''));
+    setDiscountedPrice(String(editProduct.discountedPriceIls ?? ''));
+
+    setImageUrl(editProduct.imageUrl ?? '');
+    setImageUri(''); // local image reset
+    setIsActive(!!editProduct.isActive);
   }, [editProduct]);
 
   const pickImage = async () => {
@@ -69,227 +100,260 @@ export const AddProductScreen: React.FC = () => {
     });
 
     if (!result.canceled && result.assets[0]) {
-      setImageUri(result.assets[0].uri);
-      setImageUrl('');
+      setImageUri(result.assets[0].uri); // local image
+      // keep existing imageUrl until save (so user still sees preview)
     }
   };
 
   const handleSave = async () => {
-    if (!name || !karat || !originalPrice || !discountedPrice) {
+    // basic validation
+    if (!name.trim() || !karat.trim() || !weightGrams.trim() || !originalPrice.trim() || !discountedPrice.trim()) {
       setError('الرجاء ملء جميع الحقول المطلوبة');
       return;
     }
 
+    // must have either existing imageUrl or picked imageUri
     if (!imageUri && !imageUrl) {
       setError('الرجاء اختيار صورة المنتج');
       return;
     }
 
-    const product: AdminProduct = {
-      name,
-      description,
-      karat,
-      originalPrice: parseFloat(originalPrice),
-      discountedPrice: parseFloat(discountedPrice),
-      imageUri,
-      imageUrl,
-      isActive,
-    };
-
     try {
       setError(null);
       setLoading(true);
 
-      if (editProduct?.id) {
-        await updateProduct(editProduct.id, product);
+      // ✅ Upload new image only if user picked a local one
+      let finalImageUrl = imageUrl;
+      if (imageUri) {
+        finalImageUrl = await uploadProductImage(imageUri);
+      }
+
+      const payload: Omit<AdminProduct, 'id'> = {
+        name: name.trim(),
+        description: description.trim(),
+        karat: karat.trim(),
+        weightGrams: parseFloat(weightGrams) || 0,
+        originalPriceIls: parseFloat(originalPrice) || 0,
+        discountedPriceIls: parseFloat(discountedPrice) || 0,
+        imageUrl: finalImageUrl,
+        isActive,
+      };
+
+      if (isEdit && editProduct?.id) {
+        await updateProduct(editProduct.id, payload);
         Alert.alert('نجح', 'تم تحديث المنتج بنجاح');
       } else {
-        await createProduct(product);
+        console.log("Enterrrrr")
+        await createProduct(payload);
         Alert.alert('نجح', 'تم إضافة المنتج بنجاح');
       }
 
       navigation.goBack();
     } catch (err) {
-      setError('حدث خطأ أثناء حفظ المنتج');
       console.error(err);
+      setError('حدث خطأ أثناء حفظ المنتج');
     } finally {
       setLoading(false);
     }
   };
 
   const getImageSource = () => {
-    if (imageUri) {
-      return { uri: imageUri };
-    }
-    if (imageUrl) {
-      return { uri: imageUrl };
-    }
+    if (imageUri) return { uri: imageUri }; // local preview
+    if (imageUrl) return { uri: imageUrl }; // remote preview
     return null;
   };
 
   return (
-    <ScreenContainer>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={[styles.container, { backgroundColor: theme.background }]}
-      >
-        <View style={styles.header}>
-          <Text style={[styles.title, { color: theme.darkText }]}>
-            {editProduct ? 'تعديل المنتج' : 'إضافة منتج جديد'}
-          </Text>
-        </View>
-
-        {error && <ErrorMessage message={error} />}
-
-        <View style={styles.form}>
-          <View style={styles.imageSection}>
-            <Text style={[styles.label, { color: theme.darkText }]}>صورة المنتج *</Text>
-            <TouchableOpacity
-              style={[styles.imagePickerButton, { backgroundColor: theme.surface, borderColor: theme.lightGray }]}
-              onPress={pickImage}
-            >
-              {getImageSource() ? (
-                <Image source={getImageSource()!} style={styles.previewImage} />
-              ) : (
-                <View style={styles.imagePlaceholder}>
-                  <Camera size={40} color={theme.lightText} />
-                  <Text style={[styles.imagePlaceholderText, { color: theme.lightText }]}>
-                    اختيار صورة من الجهاز
-                  </Text>
-                </View>
-              )}
-            </TouchableOpacity>
+    <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }}>
+      <ScrollView>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={[styles.container, { backgroundColor: theme.background }]}
+        >
+          <View style={styles.header}>
+            <Text style={[styles.title, { color: theme.darkText }]}>
+              {isEdit ? 'تعديل المنتج' : 'إضافة منتج جديد'}
+            </Text>
           </View>
 
-          <View style={styles.inputContainer}>
-            <Text style={[styles.label, { color: theme.darkText }]}>اسم المنتج *</Text>
-            <TextInput
-              style={[
-                styles.input,
-                {
-                  backgroundColor: theme.surface,
-                  color: theme.darkText,
-                  borderColor: theme.lightGray,
-                },
-              ]}
-              value={name}
-              onChangeText={setName}
-              placeholder="مثال: خاتم ذهب أنيق"
-              placeholderTextColor={theme.lightText}
-              textAlign="right"
+          {error && <ErrorMessage message={error} />}
+
+          <View style={styles.form}>
+            {/* IMAGE */}
+            <View style={styles.imageSection}>
+              <Text style={[styles.label, { color: theme.darkText }]}>صورة المنتج *</Text>
+              <TouchableOpacity
+                style={[
+                  styles.imagePickerButton,
+                  { backgroundColor: theme.surface, borderColor: theme.lightGray },
+                ]}
+                onPress={pickImage}
+                activeOpacity={0.85}
+              >
+                {getImageSource() ? (
+                  <Image source={getImageSource()!} style={styles.previewImage} />
+                ) : (
+                  <View style={styles.imagePlaceholder}>
+                    <Camera size={40} color={theme.lightText} />
+                    <Text style={[styles.imagePlaceholderText, { color: theme.lightText }]}>
+                      اختيار صورة من الجهاز
+                    </Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            </View>
+
+            {/* NAME */}
+            <View style={styles.inputContainer}>
+              <Text style={[styles.label, { color: theme.darkText }]}>اسم المنتج *</Text>
+              <TextInput
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor: theme.surface,
+                    color: theme.darkText,
+                    borderColor: theme.lightGray,
+                  },
+                ]}
+                value={name}
+                onChangeText={setName}
+                placeholder="مثال: خاتم ذهب أنيق"
+                placeholderTextColor={theme.lightText}
+                textAlign="right"
+              />
+            </View>
+
+            {/* DESCRIPTION */}
+            <View style={styles.inputContainer}>
+              <Text style={[styles.label, { color: theme.darkText }]}>الوصف</Text>
+              <TextInput
+                style={[
+                  styles.input,
+                  styles.textArea,
+                  {
+                    backgroundColor: theme.surface,
+                    color: theme.darkText,
+                    borderColor: theme.lightGray,
+                  },
+                ]}
+                value={description}
+                onChangeText={setDescription}
+                placeholder="وصف المنتج"
+                placeholderTextColor={theme.lightText}
+                multiline
+                numberOfLines={3}
+                textAlign="right"
+              />
+            </View>
+
+            {/* KARAT */}
+            <View style={styles.inputContainer}>
+              <Text style={[styles.label, { color: theme.darkText }]}>العيار *</Text>
+              <TextInput
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor: theme.surface,
+                    color: theme.darkText,
+                    borderColor: theme.lightGray,
+                  },
+                ]}
+                value={karat}
+                onChangeText={(v) => setKarat(sanitizeDecimal(v))}
+                placeholder="مثال: 21"
+                placeholderTextColor={theme.lightText}
+                keyboardType="decimal-pad"
+                textAlign="right"
+              />
+            </View>
+
+            {/* WEIGHT */}
+            <View style={styles.inputContainer}>
+              <Text style={[styles.label, { color: theme.darkText }]}>الوزن (غرام) *</Text>
+              <TextInput
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor: theme.surface,
+                    color: theme.darkText,
+                    borderColor: theme.lightGray,
+                  },
+                ]}
+                value={weightGrams}
+                onChangeText={(v) => setWeightGrams(sanitizeDecimal(v))}
+                placeholder="مثال: 3.5"
+                placeholderTextColor={theme.lightText}
+                keyboardType="decimal-pad"
+                textAlign="right"
+              />
+            </View>
+
+            {/* PRICES (ILS) */}
+            <View style={styles.inputContainer}>
+              <Text style={[styles.label, { color: theme.darkText }]}>السعر الأصلي (ILS) *</Text>
+              <TextInput
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor: theme.surface,
+                    color: theme.darkText,
+                    borderColor: theme.lightGray,
+                  },
+                ]}
+                value={originalPrice}
+                onChangeText={(v) => setOriginalPrice(sanitizeDecimal(v))}
+                placeholder="مثال: 4500"
+                placeholderTextColor={theme.lightText}
+                keyboardType="decimal-pad"
+                textAlign="right"
+              />
+            </View>
+
+            <View style={styles.inputContainer}>
+              <Text style={[styles.label, { color: theme.darkText }]}>السعر بعد الخصم (ILS) *</Text>
+              <TextInput
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor: theme.surface,
+                    color: theme.darkText,
+                    borderColor: theme.lightGray,
+                  },
+                ]}
+                value={discountedPrice}
+                onChangeText={(v) => setDiscountedPrice(sanitizeDecimal(v))}
+                placeholder="مثال: 3800"
+                placeholderTextColor={theme.lightText}
+                keyboardType="decimal-pad"
+                textAlign="right"
+              />
+            </View>
+
+            {/* ACTIVE */}
+            <View style={[styles.switchContainer, { backgroundColor: theme.surface }]}>
+              <Switch
+                value={isActive}
+                onValueChange={setIsActive}
+                trackColor={{ false: theme.lightGray, true: theme.goldPrimary }}
+                thumbColor={theme.white}
+              />
+              <Text style={[styles.switchLabel, { color: theme.darkText }]}>المنتج نشط</Text>
+            </View>
+
+            <PrimaryButton
+              title={isEdit ? 'حفظ التعديلات' : 'إضافة المنتج'}
+              onPress={handleSave}
+              loading={loading}
+              style={styles.button}
             />
+
+            <PrimaryButton title="إلغاء" onPress={() => navigation.goBack()} variant="outline" />
           </View>
-
-          <View style={styles.inputContainer}>
-            <Text style={[styles.label, { color: theme.darkText }]}>الوصف</Text>
-            <TextInput
-              style={[
-                styles.input,
-                styles.textArea,
-                {
-                  backgroundColor: theme.surface,
-                  color: theme.darkText,
-                  borderColor: theme.lightGray,
-                },
-              ]}
-              value={description}
-              onChangeText={setDescription}
-              placeholder="وصف المنتج"
-              placeholderTextColor={theme.lightText}
-              multiline
-              numberOfLines={3}
-              textAlign="right"
-            />
-          </View>
-
-          <View style={styles.inputContainer}>
-            <Text style={[styles.label, { color: theme.darkText }]}>العيار *</Text>
-            <TextInput
-              style={[
-                styles.input,
-                {
-                  backgroundColor: theme.surface,
-                  color: theme.darkText,
-                  borderColor: theme.lightGray,
-                },
-              ]}
-              value={karat}
-              onChangeText={setKarat}
-              placeholder="مثال: 21"
-              placeholderTextColor={theme.lightText}
-              keyboardType="numeric"
-              textAlign="right"
-            />
-          </View>
-
-          <View style={styles.inputContainer}>
-            <Text style={[styles.label, { color: theme.darkText }]}>السعر الأصلي (USD) *</Text>
-            <TextInput
-              style={[
-                styles.input,
-                {
-                  backgroundColor: theme.surface,
-                  color: theme.darkText,
-                  borderColor: theme.lightGray,
-                },
-              ]}
-              value={originalPrice}
-              onChangeText={setOriginalPrice}
-              placeholder="مثال: 450"
-              placeholderTextColor={theme.lightText}
-              keyboardType="numeric"
-              textAlign="right"
-            />
-          </View>
-
-          <View style={styles.inputContainer}>
-            <Text style={[styles.label, { color: theme.darkText }]}>السعر بعد الخصم (USD) *</Text>
-            <TextInput
-              style={[
-                styles.input,
-                {
-                  backgroundColor: theme.surface,
-                  color: theme.darkText,
-                  borderColor: theme.lightGray,
-                },
-              ]}
-              value={discountedPrice}
-              onChangeText={setDiscountedPrice}
-              placeholder="مثال: 380"
-              placeholderTextColor={theme.lightText}
-              keyboardType="numeric"
-              textAlign="right"
-            />
-          </View>
-
-          <View style={[styles.switchContainer, { backgroundColor: theme.surface }]}>
-            <Switch
-              value={isActive}
-              onValueChange={setIsActive}
-              trackColor={{ false: theme.lightGray, true: theme.goldPrimary }}
-              thumbColor={theme.white}
-            />
-            <Text style={[styles.switchLabel, { color: theme.darkText }]}>المنتج نشط</Text>
-          </View>
-
-          <PrimaryButton
-            title={editProduct ? 'حفظ التعديلات' : 'إضافة المنتج'}
-            onPress={handleSave}
-            loading={loading}
-            style={styles.button}
-          />
-
-          <PrimaryButton
-            title="إلغاء"
-            onPress={() => navigation.goBack()}
-            variant="outline"
-          />
-        </View>
-      </KeyboardAvoidingView>
-    </ScreenContainer>
+        </KeyboardAvoidingView>
+      </ScrollView>
+    </SafeAreaView>
   );
 };
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,

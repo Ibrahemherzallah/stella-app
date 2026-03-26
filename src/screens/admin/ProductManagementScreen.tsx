@@ -8,16 +8,20 @@ import { ErrorMessage } from '../../components/ErrorMessage';
 import { PrimaryButton } from '../../components/PrimaryButton';
 import { useTheme } from '../../context/ThemeContext';
 import { useCurrency } from '../../context/CurrencyContext';
-import { getAdminProducts, deleteProduct } from '../../services/api';
+// import { getAdminProducts, deleteProduct } from '../../services/api';
 import { spacing, borderRadius, fontSizes, fontWeights } from '../../theme/colors';
 import { formatPrice } from '../../theme/currency';
 import type { AdminProduct } from '../../types';
 import { Pencil, Trash2 } from 'lucide-react-native';
+import { SafeAreaView } from 'react-native-safe-area-context'
+import { ThemeToggle } from '@/src/components/ThemeToggle';
+import { listProducts, deleteProductDoc } from '../../services/firestoreProducts';
 
 export const ProductManagementScreen: React.FC = () => {
   const navigation = useNavigation();
   const { theme } = useTheme();
   const { currency } = useCurrency();
+
   const [products, setProducts] = useState<AdminProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -29,7 +33,9 @@ export const ProductManagementScreen: React.FC = () => {
   const fetchProducts = async () => {
     try {
       setError(null);
-      const data = await getAdminProducts();
+      setLoading(true);
+
+      const data = await listProducts();
       setProducts(data);
     } catch (err) {
       setError('حدث خطأ أثناء تحميل المنتجات');
@@ -40,63 +46,75 @@ export const ProductManagementScreen: React.FC = () => {
   };
 
   const handleDelete = (id: string, name: string) => {
-    Alert.alert(
-      'حذف المنتج',
-      `هل أنت متأكد من حذف "${name}"؟`,
-      [
-        { text: 'إلغاء', style: 'cancel' },
-        {
-          text: 'حذف',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteProduct(id);
-              setProducts((prev) => prev.filter((p) => p.id !== id));
-            } catch (err) {
-              Alert.alert('خطأ', 'فشل حذف المنتج');
-            }
-          },
+    Alert.alert('حذف المنتج', `هل أنت متأكد من حذف "${name}"؟`, [
+      { text: 'إلغاء', style: 'cancel' },
+      {
+        text: 'حذف',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await deleteProductDoc(id);
+            setProducts((prev) => prev.filter((p) => p.id !== id));
+          } catch (err) {
+            console.error(err);
+            Alert.alert('خطأ', 'فشل حذف المنتج');
+          }
         },
-      ]
-    );
+      },
+    ]);
   };
 
   const getImageSource = (product: AdminProduct) => {
-    if (product.imageUri) {
-      return { uri: product.imageUri };
-    }
-    if (product.imageUrl) {
-      return { uri: product.imageUrl };
-    }
+    if (product.imageUrl) return { uri: product.imageUrl };
     return require('../../../assets/images/icon.png');
   };
 
+  const getOriginalPrice = (p: AdminProduct) =>
+    (p.originalPriceIls ?? p.originalPriceIls ?? 0);
+
+  const getDiscountedPrice = (p: AdminProduct) =>
+    (p.discountedPriceIls ?? p.originalPriceIls ?? 0);
+
   const renderProduct = ({ item }: { item: AdminProduct }) => (
-    <View style={[styles.productCard, { backgroundColor: theme.surface, shadowColor: theme.darkText }]}>
+    <View
+      style={[
+        styles.productCard,
+        { backgroundColor: theme.surface, shadowColor: theme.darkText },
+      ]}
+    >
       <View style={[styles.imageContainer, { backgroundColor: theme.lightGray }]}>
         <Image source={getImageSource(item)} style={styles.productImage} />
       </View>
+
       <View style={styles.productInfo}>
         <Text style={[styles.productName, { color: theme.darkText }]}>{item.name}</Text>
         <Text style={[styles.productDetails, { color: theme.lightText }]}>
-          عيار {item.karat}
+          عيار {item.karat} • {item.weightGrams ?? '-'} غ
         </Text>
+
         <Text style={[styles.productPrice, { color: theme.goldPrimary }]}>
-          {formatPrice(item.originalPrice, currency)} → {formatPrice(item.discountedPrice, currency)}
+          {formatPrice(getOriginalPrice(item), currency)} →{' '}
+          {formatPrice(getDiscountedPrice(item), currency)}
         </Text>
-        <Text style={[styles.productStatus, { color: item.isActive ? theme.success : theme.error }]}>
+
+        <Text
+          style={[
+            styles.productStatus,
+            { color: item.isActive ? theme.success : theme.error },
+          ]}
+        >
           {item.isActive ? '✓ نشط' : '✗ غير نشط'}
         </Text>
       </View>
+
       <View style={styles.actions}>
         <TouchableOpacity
           style={[styles.actionButton, { backgroundColor: theme.goldPrimary }]}
-          onPress={() =>
-            navigation.navigate('AddProduct' as never, { product: item } as never)
-          }
+          onPress={() => navigation.navigate('AddProduct' as never, { product: item } as never)}
         >
           <Pencil size={18} color={theme.white} />
         </TouchableOpacity>
+
         <TouchableOpacity
           style={[styles.actionButton, { backgroundColor: theme.error }]}
           onPress={() => handleDelete(item.id!, item.name)}
@@ -116,9 +134,10 @@ export const ProductManagementScreen: React.FC = () => {
   }
 
   return (
-    <ScreenContainer scrollable={false}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }}>
       <View style={[styles.container, { backgroundColor: theme.background }]}>
         <View style={styles.header}>
+          <ThemeToggle />
           <Text style={[styles.title, { color: theme.darkText }]}>إدارة المنتجات</Text>
         </View>
 
@@ -136,9 +155,11 @@ export const ProductManagementScreen: React.FC = () => {
           keyExtractor={(item, index) => item.id || index.toString()}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
+          onRefresh={fetchProducts}
+          refreshing={loading}
         />
       </View>
-    </ScreenContainer>
+    </SafeAreaView>
   );
 };
 
@@ -151,7 +172,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   title: {
-    fontSize: fontSizes.xxxl,
+    fontSize: fontSizes.xxl,
     fontWeight: fontWeights.bold,
     textAlign: 'center',
   },
