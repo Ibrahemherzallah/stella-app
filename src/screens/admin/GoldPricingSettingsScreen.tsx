@@ -15,13 +15,7 @@ import { spacing, borderRadius, fontSizes, fontWeights } from '../../theme/color
 import { useTheme } from '../../context/ThemeContext';
 import { ThemeToggle } from '../../components/ThemeToggle';
 import { PrimaryButton } from '../../components/PrimaryButton';
-import {
-  getTodaySettings,
-  saveTodaySettings,
-  listItems,
-  updateItem,
-  deleteItem, // ✅ make sure you export this from services/firestoreGold
-} from '../../services/firestoreGold';
+import { getTodaySettings, saveTodaySettings, listItems, updateItem, deleteItem,} from '../../services/firestoreGold';
 
 type ProductConfig = {
   id: string;
@@ -33,18 +27,51 @@ type ProductConfig = {
   isActive?: boolean;
 };
 
+// UI state as strings (so decimals work while typing)
 type GoldPricingSettings = {
+  goldOunceUsd: string;
+  premiumOunceUsd: string;
+  usdToIls: string;
+  usdToJod: string;
+};
+
+const EMPTY_SETTINGS: GoldPricingSettings = {
+  goldOunceUsd: '',
+  premiumOunceUsd: '',
+  usdToIls: '',
+  usdToJod: '',
+};
+
+// Firestore shape (numbers) – if your service already types it, you can remove this
+type FirestoreGoldPricingSettings = {
   goldOunceUsd: number;
   premiumOunceUsd: number;
   usdToIls: number;
   usdToJod: number;
 };
 
-const EMPTY_SETTINGS: GoldPricingSettings = {
-  goldOunceUsd: 0,
-  premiumOunceUsd: 0,
-  usdToIls: 0,
-  usdToJod: 0,
+const toStrSettings = (s: FirestoreGoldPricingSettings): GoldPricingSettings => ({
+  goldOunceUsd: String(s.goldOunceUsd ?? ''),
+  premiumOunceUsd: String(s.premiumOunceUsd ?? ''),
+  usdToIls: String(s.usdToIls ?? ''),
+  usdToJod: String(s.usdToJod ?? ''),
+});
+
+const parseNum = (v: string) => {
+  const n = parseFloat(v);
+  return Number.isFinite(n) ? n : 0;
+};
+
+// allow only digits and ONE dot
+const sanitizeDecimal = (value: string) => {
+  let v = value.replace(/[^0-9.]/g, '');
+  const firstDot = v.indexOf('.');
+  if (firstDot !== -1) {
+    v =
+      v.slice(0, firstDot + 1) +
+      v.slice(firstDot + 1).replace(/\./g, '');
+  }
+  return v;
 };
 
 export const GoldPricingSettingsScreen: React.FC = () => {
@@ -64,7 +91,9 @@ export const GoldPricingSettingsScreen: React.FC = () => {
     try {
       setInitialLoading(true);
       const [s, items] = await Promise.all([getTodaySettings(), listItems()]);
-      if (s) setSettings(s);
+
+      // ✅ convert firestore numbers -> strings for UI
+      if (s) setSettings(toStrSettings(s as FirestoreGoldPricingSettings));
       setProducts(items);
     } catch (e) {
       console.error(e);
@@ -75,29 +104,44 @@ export const GoldPricingSettingsScreen: React.FC = () => {
   };
 
   const handleChangeField = (field: keyof GoldPricingSettings, value: string) => {
-    const num = parseFloat(value) || 0;
-    setSettings((prev) => ({ ...prev, [field]: num }));
+    const sanitized = sanitizeDecimal(value);
+    setSettings((prev) => ({ ...prev, [field]: sanitized }));
   };
 
   const handleChangeProductFee = (id: string, value: string) => {
-    const num = parseFloat(value) || 0;
-    setProducts((prev) => prev.map((p) => (p.id === id ? { ...p, makingFeePerGramUsd: num } : p)));
+    // You can keep fee as number, but allow decimals smoothly:
+    const sanitized = sanitizeDecimal(value);
+    const num = parseNum(sanitized);
+
+    setProducts((prev) =>
+      prev.map((p) => (p.id === id ? { ...p, makingFeePerGramUsd: num } : p))
+    );
   };
 
+  // ✅ Convert strings to numbers for calculations
+  const goldOunceUsdNum = useMemo(() => parseNum(settings.goldOunceUsd), [settings.goldOunceUsd]);
+  const premiumOunceUsdNum = useMemo(() => parseNum(settings.premiumOunceUsd), [settings.premiumOunceUsd]);
+  const usdToIlsNum = useMemo(() => parseNum(settings.usdToIls), [settings.usdToIls]);
+  const usdToJodNum = useMemo(() => parseNum(settings.usdToJod), [settings.usdToJod]);
+
   const { finalOunceUsd, baseGramUsd } = useMemo(() => {
-    const finalOunce = (settings.goldOunceUsd || 0) + (settings.premiumOunceUsd || 0);
+    const finalOunce = goldOunceUsdNum + premiumOunceUsdNum;
     const baseGram = finalOunce / 31.1 || 0;
     return { finalOunceUsd: finalOunce, baseGramUsd: baseGram };
-  }, [settings.goldOunceUsd, settings.premiumOunceUsd]);
+  }, [goldOunceUsdNum, premiumOunceUsdNum]);
 
   const handleSave = async () => {
     try {
       setLoading(true);
 
-      // 1) Save global settings
-      await saveTodaySettings(settings);
+      // ✅ Save numbers to Firestore (not strings)
+      await saveTodaySettings({
+        goldOunceUsd: goldOunceUsdNum,
+        premiumOunceUsd: premiumOunceUsdNum,
+        usdToIls: usdToIlsNum,
+        usdToJod: usdToJodNum,
+      });
 
-      // 2) Save each product's fee changes (only fee here)
       await Promise.all(
         products.map((p) => updateItem(p.id, { makingFeePerGramUsd: p.makingFeePerGramUsd }))
       );
@@ -131,9 +175,8 @@ export const GoldPricingSettingsScreen: React.FC = () => {
   };
 
   const goToEdit = (productId: string) => {
-    // ✅ You should have a screen named "EditGoldItem"
-    // and it reads route params: { itemId }
-    navigation.navigate('EditGoldItem' as never, { itemId: productId } as never);
+    console.log("The product id is : ", productId);
+    navigation.navigate('AddGoldItem' as never, { itemId: productId } as never);
   };
 
   if (initialLoading) {
@@ -148,10 +191,7 @@ export const GoldPricingSettingsScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }}>
-      <ScrollView
-        style={{ flex: 1, backgroundColor: theme.background }}
-        contentContainerStyle={{ paddingBottom: spacing.xl }}
-      >
+      <ScrollView style={{ flex: 1, backgroundColor: theme.background }} contentContainerStyle={{ paddingBottom: spacing.xl }}>
         <View style={{ padding: spacing.md }}>
           <View style={{ marginBottom: spacing.lg }}>
             <ThemeToggle />
@@ -177,12 +217,9 @@ export const GoldPricingSettingsScreen: React.FC = () => {
               سعر الذهب في البورصة (أونصة / دولار)
             </Text>
             <TextInput
-              style={[
-                styles.inputBox,
-                { borderColor: theme.lightGray, color: theme.darkText },
-              ]}
-              keyboardType="numeric"
-              value={String(settings.goldOunceUsd)}
+              style={[styles.inputBox, { borderColor: theme.lightGray, color: theme.darkText }]}
+              keyboardType="decimal-pad"
+              value={settings.goldOunceUsd}
               onChangeText={(v) => handleChangeField('goldOunceUsd', v)}
             />
 
@@ -190,34 +227,25 @@ export const GoldPricingSettingsScreen: React.FC = () => {
               الزيادة على الأونصة (Premium)
             </Text>
             <TextInput
-              style={[
-                styles.inputBox,
-                { borderColor: theme.lightGray, color: theme.darkText },
-              ]}
-              keyboardType="numeric"
-              value={String(settings.premiumOunceUsd)}
+              style={[styles.inputBox, { borderColor: theme.lightGray, color: theme.darkText }]}
+              keyboardType="decimal-pad"
+              value={settings.premiumOunceUsd}
               onChangeText={(v) => handleChangeField('premiumOunceUsd', v)}
             />
 
             <Text style={{ marginTop: spacing.md, color: theme.darkText }}>USD → ILS</Text>
             <TextInput
-              style={[
-                styles.inputBox,
-                { borderColor: theme.lightGray, color: theme.darkText },
-              ]}
-              keyboardType="numeric"
-              value={String(settings.usdToIls)}
+              style={[styles.inputBox, { borderColor: theme.lightGray, color: theme.darkText }]}
+              keyboardType="decimal-pad"
+              value={settings.usdToIls}
               onChangeText={(v) => handleChangeField('usdToIls', v)}
             />
 
             <Text style={{ marginTop: spacing.md, color: theme.darkText }}>USD → JOD</Text>
             <TextInput
-              style={[
-                styles.inputBox,
-                { borderColor: theme.lightGray, color: theme.darkText },
-              ]}
-              keyboardType="numeric"
-              value={String(settings.usdToJod)}
+              style={[styles.inputBox, { borderColor: theme.lightGray, color: theme.darkText }]}
+              keyboardType="decimal-pad"
+              value={settings.usdToJod}
               onChangeText={(v) => handleChangeField('usdToJod', v)}
             />
 
@@ -238,8 +266,8 @@ export const GoldPricingSettingsScreen: React.FC = () => {
             {products.map((product) => {
               const finalGramUsd = baseGramUsd + (product.makingFeePerGramUsd || 0);
               const priceUsd = finalGramUsd * (product.weightGrams || 0);
-              const priceJod = priceUsd * (settings.usdToJod || 0);
-              const priceIls = priceUsd * (settings.usdToIls || 0);
+              const priceJod = priceUsd * usdToJodNum;
+              const priceIls = priceUsd * usdToIlsNum;
 
               return (
                 <View
@@ -249,7 +277,6 @@ export const GoldPricingSettingsScreen: React.FC = () => {
                     { backgroundColor: theme.surface, borderColor: theme.lightGray },
                   ]}
                 >
-                  {/* Title + actions */}
                   <View style={styles.titleRow}>
                     <View style={styles.actionsRow}>
                       <TouchableOpacity
@@ -279,13 +306,8 @@ export const GoldPricingSettingsScreen: React.FC = () => {
                     </View>
                   </View>
 
-                  {/* ✅ Image */}
                   {product.imageUrl ? (
-                    <Image
-                      source={{ uri: product.imageUrl }}
-                      style={styles.productImage}
-                      resizeMode="cover"
-                    />
+                    <Image source={{ uri: product.imageUrl }} style={styles.productImage} resizeMode="cover" />
                   ) : (
                     <Image
                       source={require('../../../assets/images/gold1.jpg')}
@@ -298,11 +320,8 @@ export const GoldPricingSettingsScreen: React.FC = () => {
                     المصنعية لكل غرام (USD)
                   </Text>
                   <TextInput
-                    style={[
-                      styles.inputBox,
-                      { borderColor: theme.lightGray, color: theme.darkText },
-                    ]}
-                    keyboardType="numeric"
+                    style={[styles.inputBox, { borderColor: theme.lightGray, color: theme.darkText }]}
+                    keyboardType="decimal-pad"
                     value={String(product.makingFeePerGramUsd ?? 0)}
                     onChangeText={(v) => handleChangeProductFee(product.id, v)}
                   />
@@ -311,15 +330,9 @@ export const GoldPricingSettingsScreen: React.FC = () => {
                     <Text style={{ color: theme.goldPrimary, fontWeight: '700', textAlign: 'right' }}>
                       السعر النهائي:
                     </Text>
-                    <Text style={{ color: theme.darkText, textAlign: 'right' }}>
-                      {priceUsd.toFixed(2)} $
-                    </Text>
-                    <Text style={{ color: theme.darkText, textAlign: 'right' }}>
-                      {priceJod.toFixed(2)} JOD
-                    </Text>
-                    <Text style={{ color: theme.darkText, textAlign: 'right' }}>
-                      {priceIls.toFixed(2)} ₪
-                    </Text>
+                    <Text style={{ color: theme.darkText, textAlign: 'right' }}>{priceUsd.toFixed(2)} $</Text>
+                    <Text style={{ color: theme.darkText, textAlign: 'right' }}>{priceJod.toFixed(2)} JOD</Text>
+                    <Text style={{ color: theme.darkText, textAlign: 'right' }}>{priceIls.toFixed(2)} ₪</Text>
                   </View>
                 </View>
               );

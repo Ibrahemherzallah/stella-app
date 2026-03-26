@@ -7,8 +7,8 @@ export type CurrencyCode = 'USD' | 'JOD' | 'ILS';
 // You can change these later or load them from your backend.
 export const CURRENCY_RATES: Record<CurrencyCode, number> = {
     USD: 1,
-    JOD: 0.71, // example value
-    ILS: 3.7,  // example value
+    JOD: 0.7, // example value
+    ILS: 3.1,  // example value
 };
 
 export const CURRENCY_SYMBOLS: Record<CurrencyCode, string> = {

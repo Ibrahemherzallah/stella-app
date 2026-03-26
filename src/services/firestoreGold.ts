@@ -80,3 +80,14 @@ export async function uploadItemImage(localUri: string): Promise<string> {
   await uploadBytes(storageRef, blob);
   return await getDownloadURL(storageRef);
 }
+
+export const getItemById = async (id: string) => {
+  const ref = doc(db, 'items', id);
+  const snap = await getDoc(ref);
+
+  if (!snap.exists()) {
+    throw new Error('Item not found');
+  }
+
+  return { id: snap.id, ...(snap.data() as any) };
+};

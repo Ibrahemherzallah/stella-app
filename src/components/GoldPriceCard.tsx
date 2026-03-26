@@ -18,7 +18,7 @@ const CURRENCY_ROWS: { code: CurrencyCode; label: string }[] = [
 
 export const GoldPriceCard: React.FC<GoldPriceCardProps> = ({ title, basePriceUsd,imageUrl }) => {
   const { theme } = useTheme();
-
+  console.log("basePriceUsd is :" , basePriceUsd)
   return (
     <View style={[styles.container, { backgroundColor: theme.surface, shadowColor: theme.darkText },]}>
       <View style={styles.imageContainer}>
