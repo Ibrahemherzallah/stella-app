@@ -1,24 +1,35 @@
-// src/screens/admin/AddProductScreen.tsx
-import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, TextInput, StyleSheet, Switch, KeyboardAvoidingView, Platform, Alert, Image, TouchableOpacity,ScrollView } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+  View,
+  Text,
+  TextInput,
+  StyleSheet,
+  Switch,
+  KeyboardAvoidingView,
+  Platform,
+  Alert,
+  Image,
+  TouchableOpacity,
+  ScrollView,
+} from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
-import { ScreenContainer } from '../../components/ScreenContainer';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Camera } from 'lucide-react-native';
+
 import { PrimaryButton } from '../../components/PrimaryButton';
 import { ErrorMessage } from '../../components/ErrorMessage';
 import { useTheme } from '../../context/ThemeContext';
-import { createProduct, updateProduct } from '../../services/api';
 import { spacing, borderRadius, fontSizes, fontWeights } from '../../theme/colors';
-import { Camera } from 'lucide-react-native';
-import { SafeAreaView } from 'react-native-safe-area-context'
+
+import {
+  createProduct,
+  updateProduct,
+  getProductById,
+} from '../../services/firestoreProducts';
 import { uploadProductImage } from '../../services/storageProducts';
 
-// ✅ your firestore functions (adjust import path to yours)
-
-// ✅ your storage upload helper
-
-// ✅ if you already have AdminProduct type in another file, import it instead
-export type AdminProduct = {
+type AdminProduct = {
   id?: string;
   name: string;
   description?: string;
@@ -30,12 +41,18 @@ export type AdminProduct = {
   isActive: boolean;
 };
 
+type RouteParams = {
+  productId?: string;
+};
+
 const sanitizeDecimal = (value: string) => {
   let v = value.replace(/[^0-9.]/g, '');
   const firstDot = v.indexOf('.');
+
   if (firstDot !== -1) {
     v = v.slice(0, firstDot + 1) + v.slice(firstDot + 1).replace(/\./g, '');
   }
+
   return v;
 };
 
@@ -49,70 +66,90 @@ export const AddProductScreen: React.FC = () => {
   const route = useRoute();
   const { theme } = useTheme();
 
-  const editProduct = (route.params as any)?.product as AdminProduct | undefined;
-  const isEdit = useMemo(() => !!editProduct?.id, [editProduct?.id]);
+  const { productId } = (route.params as RouteParams) || {};
+  const isEdit = useMemo(() => !!productId, [productId]);
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [karat, setKarat] = useState('');
   const [weightGrams, setWeightGrams] = useState('');
-  const [originalPrice, setOriginalPrice] = useState(''); // ILS
-  const [discountedPrice, setDiscountedPrice] = useState(''); // ILS
-
-  // We only keep ONE image source for firestore: imageUrl
-  // imageUri is local picked image (needs upload)
+  const [originalPrice, setOriginalPrice] = useState('');
+  const [discountedPrice, setDiscountedPrice] = useState('');
   const [imageUri, setImageUri] = useState('');
   const [imageUrl, setImageUrl] = useState('');
-
   const [isActive, setIsActive] = useState(true);
+
+  const [initialLoading, setInitialLoading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!editProduct) return;
+    if (productId) {
+      loadProduct(productId);
+    }
+  }, [productId]);
 
-    setName(editProduct.name ?? '');
-    setDescription(editProduct.description ?? '');
-    setKarat(String(editProduct.karat ?? ''));
-    setWeightGrams(String(editProduct.weightGrams ?? ''));
+  const loadProduct = async (id: string) => {
+    try {
+      setInitialLoading(true);
+      setError(null);
 
-    setOriginalPrice(String(editProduct.originalPriceIls ?? ''));
-    setDiscountedPrice(String(editProduct.discountedPriceIls ?? ''));
+      const product = await getProductById(id);
 
-    setImageUrl(editProduct.imageUrl ?? '');
-    setImageUri(''); // local image reset
-    setIsActive(!!editProduct.isActive);
-  }, [editProduct]);
+      setName(product.name ?? '');
+      setDescription(product.description ?? '');
+      setKarat(String(product.karat ?? ''));
+      setWeightGrams(String(product.weightGrams ?? ''));
+      setOriginalPrice(String(product.originalPriceIls ?? ''));
+      setDiscountedPrice(String(product.discountedPriceIls ?? ''));
+      setImageUrl(product.imageUrl ?? '');
+      setImageUri('');
+      setIsActive(product.isActive ?? true);
+    } catch (err) {
+      console.error('loadProduct error:', err);
+      setError('فشل تحميل بيانات المنتج');
+    } finally {
+      setInitialLoading(false);
+    }
+  };
 
   const pickImage = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
-    if (status !== 'granted') {
-      Alert.alert('خطأ', 'نحتاج إلى إذن للوصول إلى معرض الصور');
-      return;
-    }
+      if (status !== 'granted') {
+        Alert.alert('خطأ', 'نحتاج إلى إذن للوصول إلى معرض الصور');
+        return;
+      }
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 0.8,
-    });
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.8,
+      });
 
-    if (!result.canceled && result.assets[0]) {
-      setImageUri(result.assets[0].uri); // local image
-      // keep existing imageUrl until save (so user still sees preview)
+      if (!result.canceled && result.assets?.[0]) {
+        setImageUri(result.assets[0].uri);
+      }
+    } catch (err) {
+      console.error('pickImage error:', err);
+      Alert.alert('خطأ', 'تعذر اختيار الصورة');
     }
   };
 
   const handleSave = async () => {
-    // basic validation
-    if (!name.trim() || !karat.trim() || !weightGrams.trim() || !originalPrice.trim() || !discountedPrice.trim()) {
+    if (
+      !name.trim() ||
+      !karat.trim() ||
+      !weightGrams.trim() ||
+      !originalPrice.trim() ||
+      !discountedPrice.trim()
+    ) {
       setError('الرجاء ملء جميع الحقول المطلوبة');
       return;
     }
 
-    // must have either existing imageUrl or picked imageUri
     if (!imageUri && !imageUrl) {
       setError('الرجاء اختيار صورة المنتج');
       return;
@@ -122,8 +159,8 @@ export const AddProductScreen: React.FC = () => {
       setError(null);
       setLoading(true);
 
-      // ✅ Upload new image only if user picked a local one
       let finalImageUrl = imageUrl;
+
       if (imageUri) {
         finalImageUrl = await uploadProductImage(imageUri);
       }
@@ -132,25 +169,24 @@ export const AddProductScreen: React.FC = () => {
         name: name.trim(),
         description: description.trim(),
         karat: karat.trim(),
-        weightGrams: parseFloat(weightGrams) || 0,
-        originalPriceIls: parseFloat(originalPrice) || 0,
-        discountedPriceIls: parseFloat(discountedPrice) || 0,
+        weightGrams: parseNum(weightGrams),
+        originalPriceIls: parseNum(originalPrice),
+        discountedPriceIls: parseNum(discountedPrice),
         imageUrl: finalImageUrl,
         isActive,
       };
 
-      if (isEdit && editProduct?.id) {
-        await updateProduct(editProduct.id, payload);
+      if (isEdit && productId) {
+        await updateProduct(productId, payload);
         Alert.alert('نجح', 'تم تحديث المنتج بنجاح');
       } else {
-        console.log("Enterrrrr")
         await createProduct(payload);
         Alert.alert('نجح', 'تم إضافة المنتج بنجاح');
       }
 
       navigation.goBack();
     } catch (err) {
-      console.error(err);
+      console.error('handleSave error:', err);
       setError('حدث خطأ أثناء حفظ المنتج');
     } finally {
       setLoading(false);
@@ -158,16 +194,30 @@ export const AddProductScreen: React.FC = () => {
   };
 
   const getImageSource = () => {
-    if (imageUri) return { uri: imageUri }; // local preview
-    if (imageUrl) return { uri: imageUrl }; // remote preview
+    if (imageUri) return { uri: imageUri };
+    if (imageUrl) return { uri: imageUrl };
     return null;
   };
 
+  if (initialLoading) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }}>
+        <View style={styles.loadingContainer}>
+          <Text style={{ color: theme.darkText }}>جارٍ تحميل بيانات المنتج...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }}>
-      <ScrollView>
+      <ScrollView
+        style={{ flex: 1, backgroundColor: theme.background }}
+        contentContainerStyle={{ paddingBottom: spacing.xl }}
+        keyboardShouldPersistTaps="handled"
+      >
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={[styles.container, { backgroundColor: theme.background }]}
         >
           <View style={styles.header}>
@@ -176,16 +226,19 @@ export const AddProductScreen: React.FC = () => {
             </Text>
           </View>
 
-          {error && <ErrorMessage message={error} />}
+          {error ? <ErrorMessage message={error} /> : null}
 
           <View style={styles.form}>
-            {/* IMAGE */}
-            <View style={styles.imageSection}>
+            <View style={styles.inputContainer}>
               <Text style={[styles.label, { color: theme.darkText }]}>صورة المنتج *</Text>
+
               <TouchableOpacity
                 style={[
                   styles.imagePickerButton,
-                  { backgroundColor: theme.surface, borderColor: theme.lightGray },
+                  {
+                    backgroundColor: theme.surface,
+                    borderColor: theme.lightGray,
+                  },
                 ]}
                 onPress={pickImage}
                 activeOpacity={0.85}
@@ -195,7 +248,12 @@ export const AddProductScreen: React.FC = () => {
                 ) : (
                   <View style={styles.imagePlaceholder}>
                     <Camera size={40} color={theme.lightText} />
-                    <Text style={[styles.imagePlaceholderText, { color: theme.lightText }]}>
+                    <Text
+                      style={[
+                        styles.imagePlaceholderText,
+                        { color: theme.lightText },
+                      ]}
+                    >
                       اختيار صورة من الجهاز
                     </Text>
                   </View>
@@ -203,7 +261,6 @@ export const AddProductScreen: React.FC = () => {
               </TouchableOpacity>
             </View>
 
-            {/* NAME */}
             <View style={styles.inputContainer}>
               <Text style={[styles.label, { color: theme.darkText }]}>اسم المنتج *</Text>
               <TextInput
@@ -223,7 +280,6 @@ export const AddProductScreen: React.FC = () => {
               />
             </View>
 
-            {/* DESCRIPTION */}
             <View style={styles.inputContainer}>
               <Text style={[styles.label, { color: theme.darkText }]}>الوصف</Text>
               <TextInput
@@ -246,7 +302,6 @@ export const AddProductScreen: React.FC = () => {
               />
             </View>
 
-            {/* KARAT */}
             <View style={styles.inputContainer}>
               <Text style={[styles.label, { color: theme.darkText }]}>العيار *</Text>
               <TextInput
@@ -267,7 +322,6 @@ export const AddProductScreen: React.FC = () => {
               />
             </View>
 
-            {/* WEIGHT */}
             <View style={styles.inputContainer}>
               <Text style={[styles.label, { color: theme.darkText }]}>الوزن (غرام) *</Text>
               <TextInput
@@ -288,9 +342,10 @@ export const AddProductScreen: React.FC = () => {
               />
             </View>
 
-            {/* PRICES (ILS) */}
             <View style={styles.inputContainer}>
-              <Text style={[styles.label, { color: theme.darkText }]}>السعر الأصلي (ILS) *</Text>
+              <Text style={[styles.label, { color: theme.darkText }]}>
+                السعر الأصلي (ILS) *
+              </Text>
               <TextInput
                 style={[
                   styles.input,
@@ -310,7 +365,9 @@ export const AddProductScreen: React.FC = () => {
             </View>
 
             <View style={styles.inputContainer}>
-              <Text style={[styles.label, { color: theme.darkText }]}>السعر بعد الخصم (ILS) *</Text>
+              <Text style={[styles.label, { color: theme.darkText }]}>
+                السعر بعد الخصم (ILS) *
+              </Text>
               <TextInput
                 style={[
                   styles.input,
@@ -329,7 +386,6 @@ export const AddProductScreen: React.FC = () => {
               />
             </View>
 
-            {/* ACTIVE */}
             <View style={[styles.switchContainer, { backgroundColor: theme.surface }]}>
               <Switch
                 value={isActive}
@@ -337,23 +393,38 @@ export const AddProductScreen: React.FC = () => {
                 trackColor={{ false: theme.lightGray, true: theme.goldPrimary }}
                 thumbColor={theme.white}
               />
-              <Text style={[styles.switchLabel, { color: theme.darkText }]}>المنتج نشط</Text>
+              <Text style={[styles.switchLabel, { color: theme.darkText }]}>
+                المنتج نشط
+              </Text>
             </View>
 
             <PrimaryButton
-              title={isEdit ? 'حفظ التعديلات' : 'إضافة المنتج'}
+              title={
+                loading
+                  ? isEdit
+                    ? 'جارٍ حفظ التعديلات...'
+                    : 'جارٍ إضافة المنتج...'
+                  : isEdit
+                    ? 'حفظ التعديلات'
+                    : 'إضافة المنتج'
+              }
               onPress={handleSave}
-              loading={loading}
+              disabled={loading}
               style={styles.button}
             />
 
-            <PrimaryButton title="إلغاء" onPress={() => navigation.goBack()} variant="outline" />
+            <PrimaryButton
+              title="إلغاء"
+              onPress={() => navigation.goBack()}
+              variant="outline"
+            />
           </View>
         </KeyboardAvoidingView>
       </ScrollView>
     </SafeAreaView>
   );
 };
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -366,6 +437,11 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.xxxl,
     fontWeight: fontWeights.bold,
     textAlign: 'center',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   form: {
     gap: spacing.md,
