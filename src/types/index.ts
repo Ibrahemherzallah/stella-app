@@ -33,17 +33,17 @@ export interface Offer {
   isActive: boolean;
 }
 
-export interface AdminProduct {
+export type AdminProduct = {
   id?: string;
   name: string;
-  description: string;
+  description?: string;
   karat: string;
-  originalPrice: number;
-  discountedPrice: number;
-  imageUrl?: string;
-  imageUri?: string;
+  weightGrams: number;
+  originalPriceIls: number;
+  discountedPriceIls: number;
+  imageUrl: string;
   isActive: boolean;
-}
+};
 
 export interface LoginRequest {
   email: string;

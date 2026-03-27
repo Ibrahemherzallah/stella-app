@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ScreenContainer } from '../components/ScreenContainer';
@@ -8,9 +8,8 @@ import { ErrorMessage } from '../components/ErrorMessage';
 import { ThemeToggle } from '../components/ThemeToggle';
 import { useTheme } from '../context/ThemeContext';
 import { spacing, fontSizes, fontWeights, borderRadius } from '../theme/colors';
-
-// ✅ Firestore services (from my previous message)
-import { getTodaySettings, getRulesText, listItems } from '../services/goldFirestore';
+import { getTodaySettings, getRulesText, listItems } from '../services/goldSettingsService';
+import { CurrencyRates } from '../theme/currency';
 
 type UiCard = {
   id: string;
@@ -24,6 +23,11 @@ export const PricesScreen: React.FC = () => {
 
   const [rulesText, setRulesText] = useState('');
   const [cards, setCards] = useState<UiCard[]>([]);
+  const [rates, setRates] = useState<CurrencyRates>({
+    USD: 1,
+    JOD: 0,
+    ILS: 0,
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -43,16 +47,29 @@ export const PricesScreen: React.FC = () => {
       ]);
 
       setRulesText(rules || '');
-      console.log("settings is : ", settings)
-      console.log("items is : ", items)
-      console.log("rules is : ", rules)
+
       if (!settings) {
         setCards([]);
+        setRates({
+          USD: 1,
+          JOD: 0,
+          ILS: 0,
+        });
         setError('لا توجد إعدادات اليوم. الرجاء إدخالها من حساب الأدمن.');
         return;
       }
 
-      const finalOunceUsd = (settings.goldOunceUsd || 0) + (settings.premiumOunceUsd || 0);
+      const nextRates: CurrencyRates = {
+        USD: 1,
+        JOD: settings.usdToJod || 0,
+        ILS: settings.usdToIls || 0,
+      };
+
+      setRates(nextRates);
+
+      const finalOunceUsd =
+        (settings.goldOunceUsd || 0) + (settings.premiumOunceUsd || 0);
+
       const baseGramUsd = finalOunceUsd / 31.1;
 
       const computed: UiCard[] = items
@@ -65,7 +82,7 @@ export const PricesScreen: React.FC = () => {
           const priceUsd = finalGramUsd * weight;
 
           return {
-            id: it.id || `${it.title}-${it.order}`,
+            id: it.id ?? `${it.title}-${it.order ?? 0}`,
             title: it.title,
             basePriceUsd: Number.isFinite(priceUsd) ? priceUsd : 0,
             imageUrl: it.imageUrl,
@@ -74,7 +91,8 @@ export const PricesScreen: React.FC = () => {
 
       setCards(computed);
     } catch (err) {
-      console.error(err);
+      console.error('PricesScreen fetchData error:', err);
+      setCards([]);
       setError('حدث خطأ أثناء تحميل البيانات');
     } finally {
       setLoading(false);
@@ -91,7 +109,10 @@ export const PricesScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }}>
-      <ScrollView style={[styles.container, { backgroundColor: theme.background }]}>
+      <ScrollView style={[styles.container, { backgroundColor: theme.background }]}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.content}>
           <View style={styles.headerRow}>
             <ThemeToggle />
@@ -99,7 +120,7 @@ export const PricesScreen: React.FC = () => {
             <View style={{ width: 40 }} />
           </View>
 
-          {error && <ErrorMessage message={error} />}
+          {error ? <ErrorMessage message={error} /> : null}
 
           <View style={styles.pricesContainer}>
             {cards.map((c) => (
@@ -107,16 +128,32 @@ export const PricesScreen: React.FC = () => {
                 key={c.id}
                 title={c.title}
                 basePriceUsd={c.basePriceUsd}
-                // لو عدّلت GoldPriceCard لدعم imageUrl:
                 imageUrl={c.imageUrl}
+                rates={rates}
               />
             ))}
           </View>
 
+          {!error && cards.length === 0 ? (
+            <ErrorMessage message="لا توجد منتجات مفعلة لعرضها حالياً." />
+          ) : null}
+
           {rulesText ? (
-            <View style={[styles.rulesCard, { backgroundColor: theme.surface, shadowColor: theme.darkText }]}>
-              <Text style={[styles.rulesTitle, { color: theme.goldPrimary }]}>قواعد الذهب</Text>
-              <Text style={[styles.rulesText, { color: theme.darkText }]}>{rulesText}</Text>
+            <View
+              style={[
+                styles.rulesCard,
+                {
+                  backgroundColor: theme.surface,
+                  shadowColor: theme.darkText,
+                },
+              ]}
+            >
+              <Text style={[styles.rulesTitle, { color: theme.goldPrimary }]}>
+                قواعد الذهب
+              </Text>
+              <Text style={[styles.rulesText, { color: theme.darkText }]}>
+                {rulesText}
+              </Text>
             </View>
           ) : null}
         </View>
@@ -126,33 +163,42 @@ export const PricesScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  content: { padding: spacing.md },
+  container: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: spacing.xl,
+  },
+  content: {
+    flex: 1,
+    padding: spacing.lg,
+  },
   headerRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: spacing.lg,
   },
   title: {
-    fontSize: fontSizes.xxxl,
-    fontWeight: fontWeights.bold,
-    textAlign: 'center',
-  },
-  pricesContainer: { marginBottom: spacing.lg },
-  rulesCard: {
-    borderRadius: borderRadius.lg,
-    padding: spacing.lg,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-    marginBottom: spacing.lg,
-  },
-  rulesTitle: {
     fontSize: fontSizes.xl,
     fontWeight: fontWeights.bold,
-    marginBottom: spacing.md,
+  },
+  pricesContainer: {
+    gap: spacing.xs,
+  },
+  rulesCard: {
+    marginTop: spacing.xl,
+    padding: spacing.lg,
+    borderRadius: borderRadius.lg,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  rulesTitle: {
+    fontSize: fontSizes.lg,
+    fontWeight: fontWeights.bold,
+    marginBottom: spacing.sm,
     textAlign: 'right',
   },
   rulesText: {

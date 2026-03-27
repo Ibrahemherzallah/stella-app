@@ -7,19 +7,18 @@ import { LoadingSpinner } from '../../components/LoadingSpinner';
 import { ErrorMessage } from '../../components/ErrorMessage';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, type ThemeMode } from '../../context/ThemeContext';
-import { getSettings, updateSettings } from '../../services/api';
+// import { getSettings, updateSettings } from '../../services/api';
 import { spacing, borderRadius, fontSizes, fontWeights } from '../../theme/colors';
 import type { Settings } from '../../types';
 import { ThemeToggle } from '@/src/components/ThemeToggle';
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { getPublicSettings, savePublicSettings, getRulesList, saveRulesList, } from '../../services/goldSettingsService';
 
 export const SettingsScreen: React.FC = () => {
   const { signOut } = useAuth();
-  const { theme, mode, setMode } = useTheme();
-  const [buyMargin, setBuyMargin] = useState('');
-  const [sellMargin, setSellMargin] = useState('');
-  const [makingFee, setMakingFee] = useState('');
-  const [rulesText, setRulesText] = useState('');
+  const { theme } = useTheme();
+
+  const [rules, setRules] = useState<string[]>(['']);
   const [whatsapp, setWhatsapp] = useState('');
   const [instagram, setInstagram] = useState('');
   const [tiktok, setTiktok] = useState('');
@@ -35,45 +34,64 @@ export const SettingsScreen: React.FC = () => {
   const fetchSettings = async () => {
     try {
       setError(null);
-      const data = await getSettings();
-      setBuyMargin(data.buyMargin.toString());
-      setSellMargin(data.sellMargin.toString());
-      setMakingFee(data.makingFeePerGram.toString());
-      setRulesText(data.rulesText);
-      setWhatsapp(data.socialMedia.whatsapp);
-      setInstagram(data.socialMedia.instagram);
-      setTiktok(data.socialMedia.tiktok);
-      setFacebook(data.socialMedia.facebook);
+      setLoading(true);
+
+      const [settingsData, rulesData] = await Promise.all([
+        getPublicSettings(),
+        getRulesList(),
+      ]);
+
+      setWhatsapp(settingsData.socialMedia.whatsapp);
+      setInstagram(settingsData.socialMedia.instagram);
+      setTiktok(settingsData.socialMedia.tiktok);
+      setFacebook(settingsData.socialMedia.facebook);
+
+      setRules(rulesData.length > 0 ? rulesData : ['']);
     } catch (err) {
-      setError('حدث خطأ أثناء تحميل الإعدادات');
       console.error(err);
+      setError('حدث خطأ أثناء تحميل الإعدادات');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSave = async () => {
-    const settings: Settings = {
-      buyMargin: parseFloat(buyMargin),
-      sellMargin: parseFloat(sellMargin),
-      makingFeePerGram: parseFloat(makingFee),
-      rulesText,
-      socialMedia: {
-        whatsapp,
-        instagram,
-        tiktok,
-        facebook,
-      },
-    };
+  const handleRuleChange = (index: number, value: string) => {
+    setRules((prev) => prev.map((rule, i) => (i === index ? value : rule)));
+  };
 
+  const handleAddRule = () => {
+    setRules((prev) => [...prev, '']);
+  };
+
+  const handleDeleteRule = (index: number) => {
+    setRules((prev) => {
+      const next = prev.filter((_, i) => i !== index);
+      return next.length > 0 ? next : [''];
+    });
+  };
+
+  const handleSave = async () => {
     try {
       setError(null);
       setSaving(true);
-      await updateSettings(settings);
+
+      await Promise.all([
+        savePublicSettings({
+          socialMedia: {
+            whatsapp: whatsapp.trim(),
+            instagram: instagram.trim(),
+            tiktok: tiktok.trim(),
+            facebook: facebook.trim(),
+          },
+        }),
+        saveRulesList(rules),
+      ]);
+
       Alert.alert('نجح', 'تم حفظ الإعدادات بنجاح');
+      await fetchSettings();
     } catch (err) {
-      setError('حدث خطأ أثناء حفظ الإعدادات');
       console.error(err);
+      setError('حدث خطأ أثناء حفظ الإعدادات');
     } finally {
       setSaving(false);
     }
@@ -90,7 +108,6 @@ export const SettingsScreen: React.FC = () => {
     ]);
   };
 
-
   if (loading) {
     return (
       <ScreenContainer scrollable={false}>
@@ -100,45 +117,69 @@ export const SettingsScreen: React.FC = () => {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: `${theme.background}`}}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={[styles.container, { backgroundColor: theme.background }]}>
-          <ScrollView>
-            <View style={styles.header}>
-              <ThemeToggle />
-              <Text style={[styles.title, { color: theme.darkText }]}>الإعدادات</Text>
-            </View>
+    <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={[styles.container, { backgroundColor: theme.background }]}
+      >
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+        >
+          <View style={styles.header}>
+            <ThemeToggle />
+            <Text style={[styles.title, { color: theme.darkText }]}>الإعدادات</Text>
+          </View>
 
-            {error && <ErrorMessage message={error} />}
+          {error ? <ErrorMessage message={error} /> : null}
 
-            <View style={styles.form}>
+          <View style={styles.form}>
             <View style={styles.section}>
               <Text style={[styles.sectionTitle, { color: theme.goldPrimary }]}>
                 قواعد الذهب
               </Text>
 
-              <View style={styles.inputContainer}>
-                <Text style={[styles.label, { color: theme.darkText }]}>
-                  نص القواعد والملاحظات
-                </Text>
-                <TextInput
-                  style={[
-                    styles.input,
-                    styles.textArea,
-                    {
-                      backgroundColor: theme.surface,
-                      color: theme.darkText,
-                      borderColor: theme.lightGray,
-                    },
-                  ]}
-                  value={rulesText}
-                  onChangeText={setRulesText}
-                  placeholder="مثال: سعر الذهب يتغير يومياً حسب السوق العالمي..."
-                  placeholderTextColor={theme.lightText}
-                  multiline
-                  numberOfLines={5}
-                  textAlign="right"
-                />
-              </View>
+              {rules.map((rule, index) => (
+                <View key={index} style={styles.ruleBlock}>
+                  <Text style={[styles.label, { color: theme.darkText }]}>
+                    القاعدة {index + 1}
+                  </Text>
+
+                  <TextInput
+                    style={[
+                      styles.input,
+                      styles.textArea,
+                      {
+                        backgroundColor: theme.surface,
+                        color: theme.darkText,
+                        borderColor: theme.lightGray,
+                      },
+                    ]}
+                    value={rule}
+                    onChangeText={(value) => handleRuleChange(index, value)}
+                    placeholder="اكتب القاعدة هنا"
+                    placeholderTextColor={theme.lightText}
+                    multiline
+                    numberOfLines={3}
+                    textAlign="right"
+                  />
+
+                  <TouchableOpacity
+                    onPress={() => handleDeleteRule(index)}
+                    style={styles.deleteRuleButton}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.deleteRuleText}>حذف القاعدة</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+
+              <PrimaryButton
+                title="إضافة قاعدة جديدة"
+                onPress={handleAddRule}
+                variant="outline"
+                style={styles.addRuleButton}
+              />
             </View>
 
             <View style={styles.section}>
@@ -179,7 +220,7 @@ export const SettingsScreen: React.FC = () => {
                   ]}
                   value={instagram}
                   onChangeText={setInstagram}
-                  placeholder="https://instagram.com/stella_gold"
+                  placeholder="https://instagram.com/your_page"
                   placeholderTextColor={theme.lightText}
                   keyboardType="url"
                   textAlign="right"
@@ -199,7 +240,7 @@ export const SettingsScreen: React.FC = () => {
                   ]}
                   value={tiktok}
                   onChangeText={setTiktok}
-                  placeholder="https://tiktok.com/@stella_gold"
+                  placeholder="https://tiktok.com/@your_page"
                   placeholderTextColor={theme.lightText}
                   keyboardType="url"
                   textAlign="right"
@@ -219,7 +260,7 @@ export const SettingsScreen: React.FC = () => {
                   ]}
                   value={facebook}
                   onChangeText={setFacebook}
-                  placeholder="https://facebook.com/stella_gold"
+                  placeholder="https://facebook.com/your_page"
                   placeholderTextColor={theme.lightText}
                   keyboardType="url"
                   textAlign="right"
@@ -228,15 +269,19 @@ export const SettingsScreen: React.FC = () => {
             </View>
 
             <PrimaryButton
-              title="حفظ الإعدادات"
+              title={saving ? 'جاري الحفظ...' : 'حفظ الإعدادات'}
               onPress={handleSave}
               loading={saving}
               style={styles.button}
             />
 
-            <PrimaryButton title="تسجيل الخروج" onPress={handleSignOut} variant="outline" />
+            <PrimaryButton
+              title="تسجيل الخروج"
+              onPress={handleSignOut}
+              variant="outline"
+            />
           </View>
-          </ScrollView>
+        </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -245,61 +290,69 @@ export const SettingsScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: spacing.md,
+  },
+  scrollContent: {
+    paddingBottom: spacing.xl,
   },
   header: {
-    marginBottom: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.md,
+    alignItems: 'center',
+    gap: spacing.sm,
   },
   title: {
-    fontSize: fontSizes.xxl,
-    fontWeight: fontWeights.bold,
-    textAlign: 'center',
-  },
-  form: {
-    gap: spacing.lg,
-  },
-  section: {
-    gap: spacing.md,
-  },
-  sectionTitle: {
     fontSize: fontSizes.xl,
     fontWeight: fontWeights.bold,
-    textAlign: 'right',
-    marginBottom: spacing.sm,
   },
-  themeSelector: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    justifyContent: 'flex-end',
-  },
-  themeButton: {
+  form: {
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.md,
+    paddingBottom: spacing.xl,
   },
-  themeButtonText: {
-    fontSize: fontSizes.md,
-    fontWeight: fontWeights.semiBold,
+  section: {
+    marginBottom: spacing.xl,
+  },
+  sectionTitle: {
+    fontSize: fontSizes.lg,
+    fontWeight: fontWeights.bold,
+    textAlign: 'right',
+    marginBottom: spacing.md,
   },
   inputContainer: {
-    gap: spacing.sm,
+    marginBottom: spacing.md,
   },
   label: {
     fontSize: fontSizes.md,
-    fontWeight: fontWeights.semiBold,
+    marginBottom: spacing.xs,
     textAlign: 'right',
   },
   input: {
-    borderRadius: borderRadius.md,
-    padding: spacing.md,
-    fontSize: fontSizes.md,
     borderWidth: 1,
+    borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    fontSize: fontSizes.md,
   },
   textArea: {
-    minHeight: 100,
+    minHeight: 90,
     textAlignVertical: 'top',
   },
+  ruleBlock: {
+    marginBottom: spacing.md,
+  },
+  deleteRuleButton: {
+    alignSelf: 'flex-start',
+    marginTop: spacing.xs,
+  },
+  deleteRuleText: {
+    color: '#c62828',
+    fontSize: fontSizes.sm,
+    fontWeight: fontWeights.medium,
+  },
+  addRuleButton: {
+    marginTop: spacing.sm,
+  },
   button: {
-    marginTop: spacing.md,
+    marginBottom: spacing.md,
   },
 });
