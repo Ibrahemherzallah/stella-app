@@ -227,25 +227,6 @@ export const SettingsScreen: React.FC = () => {
                 />
               </View>
 
-              <View style={styles.inputContainer}>
-                <Text style={[styles.label, { color: theme.darkText }]}>TikTok</Text>
-                <TextInput
-                  style={[
-                    styles.input,
-                    {
-                      backgroundColor: theme.surface,
-                      color: theme.darkText,
-                      borderColor: theme.lightGray,
-                    },
-                  ]}
-                  value={tiktok}
-                  onChangeText={setTiktok}
-                  placeholder="https://tiktok.com/@your_page"
-                  placeholderTextColor={theme.lightText}
-                  keyboardType="url"
-                  textAlign="right"
-                />
-              </View>
 
               <View style={styles.inputContainer}>
                 <Text style={[styles.label, { color: theme.darkText }]}>Facebook</Text>

@@ -62,7 +62,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 4,
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
     flexDirection: 'row',
   },
   imageContainer: {

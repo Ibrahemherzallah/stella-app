@@ -1,6 +1,6 @@
 // src/screens/OffersScreen.tsx
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, Linking, TouchableOpacity, } from 'react-native';
+import { View, Text, StyleSheet, FlatList, Linking, TouchableOpacity, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ScreenContainer } from '../components/ScreenContainer';
 import { OfferCard } from '../components/OfferCard';
@@ -57,6 +57,7 @@ export const OffersScreen: React.FC = () => {
         discountedPriceIls: p.discountedPriceIls,
         imageUrl: p.imageUrl,
         isActive: p.isActive,
+        soldOut: p.soldOut
       }));
 
       setOffers(mapped);
@@ -80,7 +81,31 @@ export const OffersScreen: React.FC = () => {
       console.error('Error opening link:', err);
     }
   };
+  const openWhatsApp = async (value: string) => {
+    try {
+      if (!value?.trim()) return;
 
+      const cleaned = value.replace(/[^\d+]/g, '');
+
+      // remove leading +
+      const phone = cleaned.startsWith('+') ? cleaned.slice(1) : cleaned;
+      console.log("phone is :" , phone)
+
+      const url = `https://wa.me/${phone}`;
+      console.log("url is :" , url)
+      const supported = await Linking.canOpenURL(url);
+      if (!supported) {
+        Alert.alert('خطأ', 'تعذر فتح واتساب');
+        return;
+      }
+
+      await Linking.openURL(url);
+    } catch (error) {
+      console.error('openWhatsApp error:', error);
+      Alert.alert('خطأ', 'حدث خطأ أثناء فتح واتساب');
+    }
+  };
+  console.log("settingsis is: ", settings)
   const hasSocialLinks =
     !!settings?.socialMedia?.whatsapp ||
     !!settings?.socialMedia?.instagram ||
@@ -137,7 +162,7 @@ export const OffersScreen: React.FC = () => {
               {settings?.socialMedia?.whatsapp ? (
                 <TouchableOpacity
                   style={[styles.socialButton, styles.whatsappButton]}
-                  onPress={() => openSocialMedia(settings.socialMedia.whatsapp)}
+                  onPress={() => openWhatsApp(settings.socialMedia.whatsapp)}
                 >
                   <MessageCircle size={24} color={theme.white} />
                 </TouchableOpacity>
@@ -177,7 +202,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   title: {
-    fontSize: fontSizes.xxxl,
+    fontSize: fontSizes.xxl,
     fontWeight: fontWeights.bold,
     textAlign: 'center',
     marginBottom: spacing.xs,
