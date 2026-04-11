@@ -1,21 +1,20 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Dimensions } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { View, Text, StyleSheet, Dimensions, ScrollView } from 'react-native';
 import { LineChart } from 'react-native-chart-kit';
 import { ScreenContainer } from '../components/ScreenContainer';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import { ErrorMessage } from '../components/ErrorMessage';
-import { getHistory } from '../services/api';
+import { getHistory, GoldHistoryResponse } from '../services/api';
 import { spacing, fontSizes, fontWeights, borderRadius } from '../theme/colors';
-import type { HistoryResponse } from '../types';
 import { ThemeToggle } from '@/src/components/ThemeToggle';
 import { useTheme } from '../context/ThemeContext';
-import { SafeAreaView } from 'react-native-safe-area-context'
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const screenWidth = Dimensions.get('window').width;
 
 export const ChartScreen: React.FC = () => {
   const { theme } = useTheme();
-  const [data, setData] = useState<HistoryResponse | null>(null);
+  const [data, setData] = useState<GoldHistoryResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -26,42 +25,59 @@ export const ChartScreen: React.FC = () => {
   const fetchHistory = async () => {
     try {
       setError(null);
+      setLoading(true);
+
       const response = await getHistory('21k');
       setData(response);
     } catch (err) {
-      setError('حدث خطأ أثناء تحميل البيانات');
-      console.error(err);
+      console.error('fetchHistory error:', err);
+      setData(null);
+      setError('حدث خطأ أثناء تحميل بيانات الذهب التاريخية');
     } finally {
       setLoading(false);
     }
   };
 
+  const reversedData = useMemo(() => {
+    if (!data?.data?.length) return [];
+    return [...data.data].reverse();
+  }, [data]);
+
   if (loading) {
     return (
-        <ScreenContainer scrollable={false}>
-          <LoadingSpinner />
-        </ScreenContainer>
+      <ScreenContainer scrollable={false}>
+        <LoadingSpinner />
+      </ScreenContainer>
     );
   }
 
   if (!data) {
     return (
-        <ScreenContainer>
-          <View style={[styles.container, { backgroundColor: theme.background }]}>
-            {error && <ErrorMessage message={error} />}
-          </View>
-        </ScreenContainer>
+      <ScreenContainer>
+        <View style={[styles.container, { backgroundColor: theme.background }]}>
+          {error ? <ErrorMessage message={error} /> : null}
+        </View>
+      </ScreenContainer>
     );
   }
 
+  const labels = reversedData.map((point, index) => {
+    const date = new Date(point.date);
+    const year = date.getFullYear();
+
+    // show one label every 24 months تقريباً
+    if (index % 24 === 0 || index === reversedData.length - 1) {
+      return `${year}`;
+    }
+
+    return '';
+  });
+
   const chartData = {
-    labels: data.data.map(point => {
-      const date = new Date(point.date);
-      return `${date.getDate()}/${date.getMonth() + 1}`;
-    }),
+    labels,
     datasets: [
       {
-        data: data.data.map(point => point.price),
+        data: reversedData.map((point) => point.price),
         color: () => theme.goldPrimary,
         strokeWidth: 3,
       },
@@ -72,17 +88,14 @@ export const ChartScreen: React.FC = () => {
     backgroundColor: theme.surface,
     backgroundGradientFrom: theme.surface,
     backgroundGradientTo: theme.surface,
-    decimalPlaces: 0,
+    decimalPlaces: 2,
     color: () => theme.goldPrimary,
     labelColor: () => theme.darkText,
     style: {
       borderRadius: borderRadius.lg,
     },
     propsForDots: {
-      r: '5',
-      strokeWidth: '2',
-      stroke: theme.goldPrimary,
-      fill: theme.surface,
+      r: '0',
     },
     propsForBackgroundLines: {
       strokeDasharray: '',
@@ -91,100 +104,105 @@ export const ChartScreen: React.FC = () => {
   };
 
   return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: `${theme.background}`}}>
-        <View style={[styles.container, { backgroundColor: theme.background }]}>
-          <View style={styles.header}>
-            <ThemeToggle />
-            <Text style={[styles.title, { color: theme.darkText }]}>
-              رسم بياني لأسعار الذهب
+    <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }}>
+      <ScrollView
+        style={{ flex: 1, backgroundColor: theme.background }}
+        contentContainerStyle={{ padding: spacing.md, paddingBottom: spacing.xl }}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.header}>
+          <ThemeToggle />
+          <Text style={[styles.title, { color: theme.darkText }]}>
+            الرسم البياني التاريخي للذهب
+          </Text>
+          <Text style={[styles.subtitle, { color: theme.goldPrimary }]}>
+            عيار {data.karat} - بالدولار / غرام
+          </Text>
+        </View>
+
+        {error ? <ErrorMessage message={error} /> : null}
+
+        <View style={styles.statsContainer}>
+          <View
+            style={[
+              styles.statCard,
+              { backgroundColor: theme.surface, shadowColor: theme.darkText },
+            ]}
+          >
+            <Text style={[styles.statLabel, { color: theme.lightText }]}>
+              أعلى سعر
             </Text>
-            <Text style={[styles.subtitle, { color: theme.goldPrimary }]}>
-              عيار {data.karat}
+            <Text style={[styles.statValue, { color: theme.goldPrimary }]}>
+              {data.maxPrice.toFixed(2)} $
             </Text>
-          </View>
-
-          {error && <ErrorMessage message={error} />}
-
-          <View style={styles.statsContainer}>
-            <View
-                style={[
-                  styles.statCard,
-                  { backgroundColor: theme.surface, shadowColor: theme.darkText },
-                ]}
-            >
-              <Text style={[styles.statLabel, { color: theme.lightText }]}>
-                أعلى سعر
-              </Text>
-              <Text style={[styles.statValue, { color: theme.goldPrimary }]}>
-                {data.maxPrice.toLocaleString('ar-EG')} ج.م
-              </Text>
-            </View>
-
-            <View
-                style={[
-                  styles.statCard,
-                  { backgroundColor: theme.surface, shadowColor: theme.darkText },
-                ]}
-            >
-              <Text style={[styles.statLabel, { color: theme.lightText }]}>
-                أقل سعر
-              </Text>
-              <Text style={[styles.statValue, { color: theme.goldPrimary }]}>
-                {data.minPrice.toLocaleString('ar-EG')} ج.م
-              </Text>
-            </View>
           </View>
 
           <View
-              style={[
-                styles.chartContainer,
-                { backgroundColor: theme.surface, shadowColor: theme.darkText },
-              ]}
+            style={[
+              styles.statCard,
+              { backgroundColor: theme.surface, shadowColor: theme.darkText },
+            ]}
           >
-            <LineChart
-                data={chartData}
-                width={screenWidth - spacing.md * 2}
-                height={280}
-                chartConfig={chartConfig}
-                bezier
-                style={styles.chart}
-                withInnerLines
-                withOuterLines
-                withVerticalLines={false}
-                withHorizontalLines
-                withDots
-                withShadow={false}
-            />
-          </View>
-
-          <View style={styles.legend}>
-            <View style={styles.legendItem}>
-              <View
-                  style={[
-                    styles.legendColor,
-                    { backgroundColor: theme.goldPrimary },
-                  ]}
-              />
-              <Text style={[styles.legendText, { color: theme.darkText }]}>
-                سعر الذهب عيار 21
-              </Text>
-            </View>
+            <Text style={[styles.statLabel, { color: theme.lightText }]}>
+              أقل سعر
+            </Text>
+            <Text style={[styles.statValue, { color: theme.goldPrimary }]}>
+              {data.minPrice.toFixed(2)} $
+            </Text>
           </View>
         </View>
-      </SafeAreaView>
+
+
+        <View
+          style={[
+            styles.chartContainer,
+            { backgroundColor: theme.surface, shadowColor: theme.darkText },
+          ]}
+        >
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <LineChart
+              data={chartData}
+              width={Math.max(screenWidth * 2.2, reversedData.length * 14)}
+              height={300}
+              chartConfig={chartConfig}
+              bezier
+              style={styles.chart}
+              withInnerLines
+              withOuterLines
+              withVerticalLines={false}
+              withHorizontalLines
+              withDots={false}
+              withShadow={false}
+              fromZero={false}
+              yAxisSuffix=" $"
+            />
+          </ScrollView>
+        </View>
+
+        <View style={styles.legend}>
+          <View style={styles.legendItem}>
+            <View
+              style={[
+                styles.legendColor,
+                { backgroundColor: theme.goldPrimary },
+              ]}
+            />
+            <Text style={[styles.legendText, { color: theme.darkText }]}>
+              يبدأ الرسم من الأحدث، وبالتمرير تظهر البيانات الأقدم
+            </Text>
+          </View>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: spacing.md,
-  },
   header: {
     marginBottom: spacing.lg,
   },
   title: {
-    fontSize: fontSizes.xxxl,
+    fontSize: fontSizes.xxl,
     fontWeight: fontWeights.bold,
     textAlign: 'center',
     marginBottom: spacing.xs,
@@ -193,6 +211,10 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.lg,
     textAlign: 'center',
     fontWeight: fontWeights.semiBold,
+  },
+  container: {
+    flex: 1,
+    padding: spacing.md,
   },
   statsContainer: {
     flexDirection: 'row',
@@ -208,6 +230,16 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 4,
     elevation: 2,
+  },
+  latestCard: {
+    padding: spacing.md,
+    borderRadius: borderRadius.md,
+    alignItems: 'center',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+    marginBottom: spacing.lg,
   },
   statLabel: {
     fontSize: fontSizes.sm,
@@ -236,7 +268,7 @@ const styles = StyleSheet.create({
     padding: spacing.md,
   },
   legendItem: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     alignItems: 'center',
     gap: spacing.sm,
   },
@@ -248,5 +280,6 @@ const styles = StyleSheet.create({
   legendText: {
     fontSize: fontSizes.sm,
     fontWeight: fontWeights.medium,
+    textAlign: 'center',
   },
 });

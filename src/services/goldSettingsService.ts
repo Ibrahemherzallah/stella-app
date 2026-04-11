@@ -3,12 +3,14 @@
 import { db, storage } from './firebase';
 import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, orderBy, query, serverTimestamp, setDoc, updateDoc, } from 'firebase/firestore';
 import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
+import { data } from 'browserslist';
 
 // ---------------- TYPES ----------------
 
 export type GoldSettings = {
   goldOunceUsd: number;
-  premiumOunceUsd: number;
+  premiumSellOunceUsd: number;
+  premiumBuyOunceUsd: number;
   usdToJod: number;
   usdToIls: number;
   updatedAt?: any;
@@ -21,7 +23,8 @@ export type GoldItem = {
   weightGrams: number;
   makingFeePerGramUsd: number;
   isActive: boolean;
-  order: number;
+  karat: '21' | '24';
+  type: 'sell' | 'buy';
   updatedAt?: any;
 };
 
@@ -59,7 +62,8 @@ export async function getTodaySettings(): Promise<GoldSettings | null> {
 
   return {
     goldOunceUsd: toNumber(data?.goldOunceUsd),
-    premiumOunceUsd: toNumber(data?.premiumOunceUsd),
+    premiumSellOunceUsd: toNumber(data?.premiumSellOunceUsd),
+    premiumBuyOunceUsd: toNumber(data?.premiumBuyOunceUsd),
     usdToJod: toNumber(data?.usdToJod),
     usdToIls: toNumber(data?.usdToIls),
     updatedAt: data?.updatedAt,
@@ -71,7 +75,8 @@ export async function saveTodaySettings(settings: GoldSettings): Promise<void> {
     doc(db, 'settings', 'today'),
     {
       goldOunceUsd: toNumber(settings.goldOunceUsd),
-      premiumOunceUsd: toNumber(settings.premiumOunceUsd),
+      premiumSellOunceUsd: toNumber(settings?.premiumSellOunceUsd),
+      premiumBuyOunceUsd: toNumber(settings?.premiumBuyOunceUsd),
       usdToJod: toNumber(settings.usdToJod),
       usdToIls: toNumber(settings.usdToIls),
       updatedAt: serverTimestamp(),
@@ -157,13 +162,13 @@ export async function getRulesText(): Promise<string | null> {
   if (!snap.exists()) return null;
 
   const data = snap.data() as any;
-  return data?.rulesText ?? null;
+  return data?.rules ?? null;
 }
 
 // ---------------- ITEMS ----------------
 
 export async function listItems(): Promise<GoldItem[]> {
-  const q = query(collection(db, 'items'), orderBy('order', 'asc'));
+  const q = query(collection(db, 'items'), orderBy('updatedAt', 'asc'));
   const snap = await getDocs(q);
 
   return snap.docs.map((d) => {
@@ -176,46 +181,14 @@ export async function listItems(): Promise<GoldItem[]> {
       weightGrams: toNumber(data?.weightGrams),
       makingFeePerGramUsd: toNumber(data?.makingFeePerGramUsd),
       isActive: data?.isActive ?? true,
-      order: toNumber(data?.order),
+      type: data?.type ?? 'buy',
+      karat: data?.karat ?? '21',
       updatedAt: data?.updatedAt,
     };
   });
 }
 
-export async function getItemById(itemId: string): Promise<GoldItem> {
-  const snap = await getDoc(doc(db, 'items', itemId));
 
-  if (!snap.exists()) {
-    throw new Error('Item not found');
-  }
-
-  const data = snap.data() as any;
-
-  return {
-    id: snap.id,
-    title: data?.title ?? '',
-    imageUrl: data?.imageUrl ?? '',
-    weightGrams: toNumber(data?.weightGrams),
-    makingFeePerGramUsd: toNumber(data?.makingFeePerGramUsd),
-    isActive: data?.isActive ?? true,
-    order: toNumber(data?.order),
-    updatedAt: data?.updatedAt,
-  };
-}
-
-export async function createItem(item: Omit<GoldItem, 'id'>): Promise<string> {
-  const refDoc = await addDoc(collection(db, 'items'), {
-    title: item.title ?? '',
-    imageUrl: item.imageUrl ?? '',
-    weightGrams: toNumber(item.weightGrams),
-    makingFeePerGramUsd: toNumber(item.makingFeePerGramUsd),
-    isActive: item.isActive ?? true,
-    order: toNumber(item.order),
-    updatedAt: serverTimestamp(),
-  });
-
-  return refDoc.id;
-}
 
 export async function updateItem(itemId: string, patch: Partial<GoldItem>): Promise<void> {
   const payload: Record<string, any> = {
@@ -229,7 +202,7 @@ export async function updateItem(itemId: string, patch: Partial<GoldItem>): Prom
     payload.makingFeePerGramUsd = toNumber(patch.makingFeePerGramUsd);
   }
   if (patch.isActive !== undefined) payload.isActive = patch.isActive;
-  if (patch.order !== undefined) payload.order = toNumber(patch.order);
+  if (patch.type !== undefined) payload.type = patch.type;
 
   await updateDoc(doc(db, 'items', itemId), payload);
 }

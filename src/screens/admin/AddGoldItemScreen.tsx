@@ -3,7 +3,7 @@ import { Alert, Image, ScrollView, Text, TextInput, TouchableOpacity, View } fro
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
-
+import { Picker } from '@react-native-picker/picker';
 import { useTheme } from '../../context/ThemeContext';
 import { spacing } from '../../theme/colors';
 import { PrimaryButton } from '../../components/PrimaryButton';
@@ -40,11 +40,12 @@ export const AddGoldItemScreen: React.FC = () => {
   const [title, setTitle] = useState('');
   const [weightGrams, setWeightGrams] = useState('1');
   const [makingFee, setMakingFee] = useState('0');
-  const [order, setOrder] = useState('0');
-
+  const [type, setType] = useState<'sell' | 'buy'>('sell');
+  const [showTypeDropdown, setShowTypeDropdown] = useState(false);
   const [localImageUri, setLocalImageUri] = useState<string | null>(null);
   const [existingImageUrl, setExistingImageUrl] = useState<string | undefined>(undefined);
-
+  const [karat, setKarat] = useState<'21' | '24'>('21');
+  const [showKaratDropdown, setShowKaratDropdown] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loadingItem, setLoadingItem] = useState(false);
 
@@ -56,11 +57,12 @@ export const AddGoldItemScreen: React.FC = () => {
       try {
         setLoadingItem(true);
         const item = await getItemById(itemId);
-
+        console.log("The ite m is: ", item)
         setTitle(item.title ?? '');
         setWeightGrams(String(item.weightGrams ?? ''));
         setMakingFee(String(item.makingFeePerGramUsd ?? 0));
-        setOrder(String(item.order ?? 0));
+        setKarat(item.karat === '24' ? '24' : '21');
+        setType(item.karat === '24' ? 'buy' : item.type === 'buy' ? 'buy' : 'sell');
         setExistingImageUrl(item.imageUrl);
         setLocalImageUri(null);
       } catch (e) {
@@ -73,6 +75,13 @@ export const AddGoldItemScreen: React.FC = () => {
 
     loadItem();
   }, [itemId]);
+
+  useEffect(() => {
+    if (karat === '24') {
+      setType('buy');
+      setShowTypeDropdown(false);
+    }
+  }, [karat]);
 
   const pickImage = async () => {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -102,7 +111,6 @@ export const AddGoldItemScreen: React.FC = () => {
     try {
       setSaving(true);
 
-      // upload new image only if user picked one
       let finalImageUrl = existingImageUrl;
       if (localImageUri) {
         finalImageUrl = await uploadItemImage(localImageUri);
@@ -112,8 +120,9 @@ export const AddGoldItemScreen: React.FC = () => {
         title: title.trim(),
         weightGrams: parseFloat(sanitizeDecimal(weightGrams)) || 0,
         makingFeePerGramUsd: parseFloat(sanitizeDecimal(makingFee)) || 0,
-        order: parseFloat(sanitizeDecimal(order)) || 0,
         imageUrl: finalImageUrl,
+        karat,
+        type: karat === '24' ? 'buy' : type,
         isActive: true,
       };
 
@@ -124,11 +133,10 @@ export const AddGoldItemScreen: React.FC = () => {
         await createItem(payload);
         Alert.alert('تم', 'تم إضافة الصنف بنجاح');
 
-        // reset after add
         setTitle('');
         setWeightGrams('1');
         setMakingFee('0');
-        setOrder('0');
+        setType('sell');
         setLocalImageUri(null);
         setExistingImageUrl(undefined);
       }
@@ -189,9 +197,8 @@ export const AddGoldItemScreen: React.FC = () => {
             }}
           />
 
-          {/* NOTE: You labeled ILS but you save makingFeePerGramUsd. Fix the label or the field. */}
           <Text style={{ marginTop: spacing.md, color: theme.darkText, textAlign: 'right' }}>
-            المصنعية لكل غرام (USD)
+            المصنعية لكل غرام (JOD)
           </Text>
           <TextInput
             value={makingFee}
@@ -207,22 +214,140 @@ export const AddGoldItemScreen: React.FC = () => {
               textAlign: 'right',
             }}
           />
-
-          <Text style={{ marginTop: spacing.md, color: theme.darkText, textAlign: 'right' }}>الترتيب (Order)</Text>
-          <TextInput
-            value={order}
-            onChangeText={(v) => setOrder(sanitizeDecimal(v))}
-            keyboardType="decimal-pad"
+          <Text
             style={{
-              borderWidth: 1,
-              borderColor: theme.lightGray,
-              padding: 12,
-              borderRadius: 10,
+              marginTop: spacing.md,
               color: theme.darkText,
-              marginTop: 6,
               textAlign: 'right',
             }}
-          />
+          >
+            العيار
+          </Text>
+
+          <View style={{ marginTop: 6 }}>
+            <TouchableOpacity
+              onPress={() => setShowKaratDropdown(!showKaratDropdown)}
+              style={{
+                borderWidth: 1,
+                borderColor: theme.lightGray,
+                borderRadius: 10,
+                padding: 14,
+                backgroundColor: theme.surface,
+              }}
+            >
+              <Text style={{ color: theme.darkText, textAlign: 'right' }}>
+                {karat === '24' ? '24' : '21'}
+              </Text>
+            </TouchableOpacity>
+
+            {showKaratDropdown && (
+              <View
+                style={{
+                  borderWidth: 1,
+                  borderColor: theme.lightGray,
+                  borderRadius: 10,
+                  marginTop: 6,
+                  backgroundColor: theme.surface,
+                  overflow: 'hidden',
+                }}
+              >
+                <TouchableOpacity
+                  onPress={() => {
+                    setKarat('21');
+                    setShowKaratDropdown(false);
+                  }}
+                  style={{
+                    padding: 14,
+                    borderBottomWidth: 1,
+                    borderBottomColor: theme.lightGray,
+                  }}
+                >
+                  <Text style={{ color: theme.darkText, textAlign: 'right' }}>21</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={() => {
+                    setKarat('24');
+                    setShowKaratDropdown(false);
+                  }}
+                  style={{
+                    padding: 14,
+                  }}
+                >
+                  <Text style={{ color: theme.darkText, textAlign: 'right' }}>24</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+          {karat === '21' ? (
+            <>
+              <Text
+                style={{
+                  marginTop: spacing.md,
+                  color: theme.darkText,
+                  textAlign: 'right',
+                }}
+              >
+                النوع
+              </Text>
+
+              <View style={{ marginTop: 6 }}>
+                <TouchableOpacity
+                  onPress={() => setShowTypeDropdown(!showTypeDropdown)}
+                  style={{
+                    borderWidth: 1,
+                    borderColor: theme.lightGray,
+                    borderRadius: 10,
+                    padding: 14,
+                    backgroundColor: theme.surface,
+                  }}
+                >
+                  <Text style={{ color: theme.darkText, textAlign: 'right' }}>
+                    {type === 'sell' ? 'بيع' : 'شراء'}
+                  </Text>
+                </TouchableOpacity>
+
+                {showTypeDropdown && (
+                  <View
+                    style={{
+                      borderWidth: 1,
+                      borderColor: theme.lightGray,
+                      borderRadius: 10,
+                      marginTop: 6,
+                      backgroundColor: theme.surface,
+                      overflow: 'hidden',
+                    }}
+                  >
+                    <TouchableOpacity
+                      onPress={() => {
+                        setType('sell');
+                        setShowTypeDropdown(false);
+                      }}
+                      style={{
+                        padding: 14,
+                        borderBottomWidth: 1,
+                        borderBottomColor: theme.lightGray,
+                      }}
+                    >
+                      <Text style={{ color: theme.darkText, textAlign: 'right' }}>بيع</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      onPress={() => {
+                        setType('buy');
+                        setShowTypeDropdown(false);
+                      }}
+                      style={{
+                        padding: 14,
+                      }}
+                    >
+                      <Text style={{ color: theme.darkText, textAlign: 'right' }}>شراء</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
+            </>
+          ) : null}
 
           <TouchableOpacity
             onPress={pickImage}

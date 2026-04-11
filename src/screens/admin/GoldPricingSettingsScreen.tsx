@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect,useCallback, useMemo, useState } from 'react';
 import { Alert, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -7,30 +7,13 @@ import { useTheme } from '../../context/ThemeContext';
 import { ThemeToggle } from '../../components/ThemeToggle';
 import { PrimaryButton } from '../../components/PrimaryButton';
 import { getTodaySettings, saveTodaySettings, listItems, updateItem, deleteItem,GoldItem } from '../../services/goldSettingsService';
+import { useFocusEffect, useRoute } from '@react-navigation/native';
 
-// type GoldItem = {
-//   id: string;
-//   title: string;
-//   weightGrams: number;
-//   makingFeePerGramUsd: number;
-//   imageUrl?: string;
-//   order?: number;
-//   isActive?: boolean;
-// };
-// export type GoldItem = {
-//   id: string;
-//   title: string;
-//   imageUrl?: string;
-//   weightGrams: number;
-//   makingFeePerGramUsd: number;
-//   isActive: boolean;
-//   order: number;
-//   updatedAt?: any;
-// };
 
 type GoldPricingSettingsForm = {
   goldOunceUsd: string;
-  premiumOunceUsd: string;
+  premiumSellOunceUsd: string;
+  premiumBuyOunceUsd: string;
   usdToIls: string;
   usdToJod: string;
 };
@@ -46,19 +29,11 @@ type FirestoreGoldPricingSettings = {
 
 const EMPTY_SETTINGS: GoldPricingSettingsForm = {
   goldOunceUsd: '',
-  premiumOunceUsd: '',
+  premiumSellOunceUsd: '',
+  premiumBuyOunceUsd: '',
   usdToIls: '',
   usdToJod: '',
 };
-
-const toStrSettings = (
-  s: FirestoreGoldPricingSettings
-): GoldPricingSettingsForm => ({
-  goldOunceUsd: String(s.goldOunceUsd ?? ''),
-  premiumOunceUsd: String(s.premiumOunceUsd ?? ''),
-  usdToIls: String(s.usdToIls ?? ''),
-  usdToJod: String(s.usdToJod ?? ''),
-});
 
 const parseNum = (value: string) => {
   const n = parseFloat(value);
@@ -79,16 +54,14 @@ const sanitizeDecimal = (value: string) => {
 export const GoldPricingSettingsScreen: React.FC = () => {
   const { theme } = useTheme();
   const navigation = useNavigation();
-
+  const route = useRoute();
   const [settings, setSettings] = useState<GoldPricingSettingsForm>(EMPTY_SETTINGS);
   const [products, setProducts] = useState<GoldItem[]>([]);
   const [productFees, setProductFees] = useState<ProductFeeForm>({});
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
-
-  useEffect(() => {
-    loadAll();
-  }, []);
+  const [premiumSellMode, setPremiumSellMode] = useState<'increase' | 'decrease'>('increase');
+  const [premiumBuyMode, setPremiumBuyMode] = useState<'increase' | 'decrease'>('increase');
 
   const loadAll = async () => {
     try {
@@ -100,9 +73,23 @@ export const GoldPricingSettingsScreen: React.FC = () => {
       ]);
 
       if (savedSettings) {
-        setSettings(toStrSettings(savedSettings as FirestoreGoldPricingSettings));
+        const premiumSellValue = Number(savedSettings.premiumSellOunceUsd ?? 0);
+        const premiumBuyValue = Number(savedSettings.premiumBuyOunceUsd ?? 0);
+
+        setSettings({
+          goldOunceUsd: String(savedSettings.goldOunceUsd ?? ''),
+          premiumSellOunceUsd: String(Math.abs(premiumSellValue)),
+          premiumBuyOunceUsd: String(Math.abs(premiumBuyValue)),
+          usdToIls: String(savedSettings.usdToIls ?? ''),
+          usdToJod: String(savedSettings.usdToJod ?? ''),
+        });
+
+        setPremiumSellMode(premiumSellValue < 0 ? 'decrease' : 'increase');
+        setPremiumBuyMode(premiumBuyValue < 0 ? 'decrease' : 'increase');
       } else {
         setSettings(EMPTY_SETTINGS);
+        setPremiumSellMode('increase');
+        setPremiumBuyMode('increase');
       }
 
       setProducts(items);
@@ -119,7 +106,7 @@ export const GoldPricingSettingsScreen: React.FC = () => {
       setInitialLoading(false);
     }
   };
-
+  console.log("the products is : ", products);
   const handleChangeField = (field: keyof GoldPricingSettingsForm, value: string) => {
     const sanitized = sanitizeDecimal(value);
     setSettings((prev) => ({
@@ -148,14 +135,31 @@ export const GoldPricingSettingsScreen: React.FC = () => {
     );
   };
 
+
+
   const goldOunceUsdNum = useMemo(
     () => parseNum(settings.goldOunceUsd),
     [settings.goldOunceUsd]
   );
 
-  const premiumOunceUsdNum = useMemo(
-    () => parseNum(settings.premiumOunceUsd),
-    [settings.premiumOunceUsd]
+  const premiumSellRawNum = useMemo(
+    () => parseNum(settings.premiumSellOunceUsd),
+    [settings.premiumSellOunceUsd]
+  );
+
+  const premiumBuyRawNum = useMemo(
+    () => parseNum(settings.premiumBuyOunceUsd),
+    [settings.premiumBuyOunceUsd]
+  );
+
+  const premiumSellOunceUsdNum = useMemo(
+    () => (premiumSellMode === 'decrease' ? -premiumSellRawNum : premiumSellRawNum),
+    [premiumSellRawNum, premiumSellMode]
+  );
+
+  const premiumBuyOunceUsdNum = useMemo(
+    () => (premiumBuyMode === 'decrease' ? -premiumBuyRawNum : premiumBuyRawNum),
+    [premiumBuyRawNum, premiumBuyMode]
   );
 
   const usdToIlsNum = useMemo(
@@ -168,25 +172,75 @@ export const GoldPricingSettingsScreen: React.FC = () => {
     [settings.usdToJod]
   );
 
-  const { finalOunceUsd, baseGramUsd } = useMemo(() => {
-    const finalOunce = goldOunceUsdNum + premiumOunceUsdNum;
-    const baseGram = finalOunce > 0 ? finalOunce / 31.1 : 0;
+  const { finalSellOunceUsd, finalBuyOunceUsd, baseGramUsdSell, baseGramUsdBuy, baseGramUsdBuy24, finalBuyOunceUsd24 } = useMemo(() => {
+    const finalSellOunce = goldOunceUsdNum + premiumSellOunceUsdNum;
+
+    const finalBuyOunce = goldOunceUsdNum + premiumBuyOunceUsdNum;
+
+
+    const finalBuyOunce24 = goldOunceUsdNum + premiumBuyOunceUsdNum;
+
+
+    const baseGramSell = finalSellOunce > 0 ? (finalSellOunce / 31.1) * 0.87 : 0;
+    const baseGramBuy = finalBuyOunce > 0 ? (finalBuyOunce / 31.1) * 0.885 : 0;
+    const baseGramBuy24 = finalBuyOunce > 0 ? (finalBuyOunce / 31.1) : 0;
 
     return {
-      finalOunceUsd: finalOunce,
-      baseGramUsd: baseGram,
+      finalSellOunceUsd: finalSellOunce,
+      finalBuyOunceUsd: finalBuyOunce,
+      finalBuyOunceUsd24: finalBuyOunce24,
+      baseGramUsdSell: baseGramSell,
+      baseGramUsdBuy: baseGramBuy,
+      baseGramUsdBuy24: baseGramBuy24
     };
-  }, [goldOunceUsdNum, premiumOunceUsdNum]);
+  }, [goldOunceUsdNum, premiumSellOunceUsdNum, premiumBuyOunceUsdNum]);
+
 
   const handleSave = async () => {
+    const goldValue = parseFloat(settings.goldOunceUsd);
+    const premiumSellValue = parseFloat(settings.premiumSellOunceUsd);
+    const premiumBuyValue = parseFloat(settings.premiumBuyOunceUsd);
+    const ilsValue = parseFloat(settings.usdToIls);
+    const jodValue = parseFloat(settings.usdToJod);
+
+    if (
+      isNaN(goldValue) ||
+      isNaN(premiumSellValue) ||
+      isNaN(premiumBuyValue) ||
+      isNaN(ilsValue) ||
+      isNaN(jodValue)
+    ) {
+      Alert.alert('خطأ', 'الرجاء إدخال أرقام صحيحة في جميع الحقول');
+      return;
+    }
+
+    if (premiumSellValue < 0 || premiumSellValue > 1000) {
+      Alert.alert('خطأ', 'قيمة Premium البيع يجب أن تكون بين 0 و 1000');
+      return;
+    }
+
+    if (premiumBuyValue < 0 || premiumBuyValue > 1000) {
+      Alert.alert('خطأ', 'قيمة Premium الشراء يجب أن تكون بين 0 و 1000');
+      return;
+    }
+
+    const signedPremiumSell =
+      premiumSellMode === 'decrease' ? -premiumSellValue : premiumSellValue;
+    console.log("signedPremiumSell is : " , signedPremiumSell)
+
+    const signedPremiumBuy =
+      premiumBuyMode === 'decrease' ? -premiumBuyValue : premiumBuyValue;
+    console.log("signedPremiumBuy is : " , signedPremiumBuy)
+
     try {
       setLoading(true);
 
       await saveTodaySettings({
-        goldOunceUsd: goldOunceUsdNum,
-        premiumOunceUsd: premiumOunceUsdNum,
-        usdToIls: usdToIlsNum,
-        usdToJod: usdToJodNum,
+        goldOunceUsd: goldValue,
+        premiumSellOunceUsd: signedPremiumSell,
+        premiumBuyOunceUsd: signedPremiumBuy,
+        usdToIls: ilsValue,
+        usdToJod: jodValue,
       });
 
       await Promise.all(
@@ -241,6 +295,18 @@ export const GoldPricingSettingsScreen: React.FC = () => {
     navigation.navigate('AddGoldItem' as never, { itemId: productId } as never);
   };
 
+  const toNumber = (value: unknown): number => {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : 0;
+  };
+
+
+  useFocusEffect(
+    useCallback(() => {
+      loadAll();
+    }, [])
+  );
+
   if (initialLoading) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }}>
@@ -291,8 +357,8 @@ export const GoldPricingSettingsScreen: React.FC = () => {
               placeholderTextColor={theme.lightText}
             />
 
-            <Text style={[styles.label, { color: theme.darkText }]}>
-              الزيادة على الأونصة (Premium)
+            <Text style={[styles.label, { color: theme.darkText, marginTop: 16 }]}>
+              تعديل سعر البيع على الأونصة
             </Text>
             <TextInput
               style={[
@@ -300,12 +366,138 @@ export const GoldPricingSettingsScreen: React.FC = () => {
                 { borderColor: theme.lightGray, color: theme.darkText },
               ]}
               keyboardType="decimal-pad"
-              value={settings.premiumOunceUsd}
-              onChangeText={(v) => handleChangeField('premiumOunceUsd', v)}
+              value={settings.premiumSellOunceUsd}
+              onChangeText={(v) =>
+                handleChangeField('premiumSellOunceUsd', sanitizeDecimal(v))
+              }
               placeholder="مثال: 25"
               placeholderTextColor={theme.lightText}
             />
 
+            <View style={{ flexDirection: 'row-reverse', gap: 10, marginTop: 10 }}>
+              <TouchableOpacity
+                onPress={() => setPremiumSellMode('increase')}
+                style={{
+                  flex: 1,
+                  paddingVertical: 12,
+                  borderRadius: 12,
+                  borderWidth: 1,
+                  borderColor:
+                    premiumSellMode === 'increase' ? theme.goldPrimary : theme.lightGray,
+                  backgroundColor:
+                    premiumSellMode === 'increase' ? theme.goldPrimary : theme.surface,
+                  alignItems: 'center',
+                }}
+              >
+                <Text
+                  style={{
+                    color: premiumSellMode === 'increase' ? '#fff' : theme.darkText,
+                    fontWeight: '600',
+                  }}
+                >
+                  زيادة
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => setPremiumSellMode('decrease')}
+                style={{
+                  flex: 1,
+                  paddingVertical: 12,
+                  borderRadius: 12,
+                  borderWidth: 1,
+                  borderColor:
+                    premiumSellMode === 'decrease' ? theme.goldPrimary : theme.lightGray,
+                  backgroundColor:
+                    premiumSellMode === 'decrease' ? theme.goldPrimary : theme.surface,
+                  alignItems: 'center',
+                }}
+              >
+                <Text
+                  style={{
+                    color: premiumSellMode === 'decrease' ? '#fff' : theme.darkText,
+                    fontWeight: '600',
+                  }}
+                >
+                  نقصان
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <Text style={{ color: theme.lightText, fontSize: 12, textAlign: 'right', marginTop: 6 }}>
+              أدخل قيمة تعديل سعر البيع ثم اختر هل هي زيادة أو نقصان
+            </Text>
+
+            <Text style={[styles.label, { color: theme.darkText, marginTop: 18 }]}>
+              تعديل سعر الشراء على الأونصة
+            </Text>
+            <TextInput
+              style={[
+                styles.inputBox,
+                { borderColor: theme.lightGray, color: theme.darkText },
+              ]}
+              keyboardType="decimal-pad"
+              value={settings.premiumBuyOunceUsd}
+              onChangeText={(v) =>
+                handleChangeField('premiumBuyOunceUsd', sanitizeDecimal(v))
+              }
+              placeholder="مثال: 25"
+              placeholderTextColor={theme.lightText}
+            />
+
+            <View style={{ flexDirection: 'row-reverse', gap: 10, marginTop: 10 }}>
+              <TouchableOpacity
+                onPress={() => setPremiumBuyMode('increase')}
+                style={{
+                  flex: 1,
+                  paddingVertical: 12,
+                  borderRadius: 12,
+                  borderWidth: 1,
+                  borderColor:
+                    premiumBuyMode === 'increase' ? theme.goldPrimary : theme.lightGray,
+                  backgroundColor:
+                    premiumBuyMode === 'increase' ? theme.goldPrimary : theme.surface,
+                  alignItems: 'center',
+                }}
+              >
+                <Text
+                  style={{
+                    color: premiumBuyMode === 'increase' ? '#fff' : theme.darkText,
+                    fontWeight: '600',
+                  }}
+                >
+                  زيادة
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => setPremiumBuyMode('decrease')}
+                style={{
+                  flex: 1,
+                  paddingVertical: 12,
+                  borderRadius: 12,
+                  borderWidth: 1,
+                  borderColor:
+                    premiumBuyMode === 'decrease' ? theme.goldPrimary : theme.lightGray,
+                  backgroundColor:
+                    premiumBuyMode === 'decrease' ? theme.goldPrimary : theme.surface,
+                  alignItems: 'center',
+                }}
+              >
+                <Text
+                  style={{
+                    color: premiumBuyMode === 'decrease' ? '#fff' : theme.darkText,
+                    fontWeight: '600',
+                  }}
+                >
+                  نقصان
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <Text style={{ color: theme.lightText, fontSize: 12, textAlign: 'right', marginTop: 6 }}>
+              أدخل قيمة تعديل سعر الشراء ثم اختر هل هي زيادة أو نقصان
+            </Text>
             <Text style={[styles.label, { color: theme.darkText }]}>
               USD → ILS
             </Text>
@@ -337,21 +529,26 @@ export const GoldPricingSettingsScreen: React.FC = () => {
             />
 
             <Text style={[styles.helperText, { color: theme.lightText }]}>
-              السعر النهائي للأونصة = {finalOunceUsd.toFixed(2)} $
+              {/*السعر النهائي للأونصة = {finalOunceUsd.toFixed(2)} $*/}
             </Text>
             <Text style={[styles.helperText, { color: theme.lightText }]}>
-              سعر الغرام الأساسي ≈ {baseGramUsd.toFixed(2)} $
+              سعر الغرام الأساسي بيع ≈ {baseGramUsdSell.toFixed(2)} $
+            </Text>
+            <Text style={[styles.helperText, { color: theme.lightText }]}>
+              سعر الغرام الأساسي شراء≈ {baseGramUsdBuy.toFixed(2)} $
             </Text>
           </View>
 
           <View style={{ marginTop: spacing.xl }}>
             <Text style={[styles.sectionTitle, { color: theme.goldPrimary }]}>
-              المصنعية لكل صنف
+              كل الأصناف
             </Text>
 
             {products.map((product) => {
-              const finalGramUsd = baseGramUsd + (product.makingFeePerGramUsd || 0);
-              const priceUsd = finalGramUsd * (product.weightGrams || 0);
+              const withJODMaking = product.makingFeePerGramUsd / toNumber(settings?.usdToJod);
+              const finalGramUsd = product.type === "sell" ? baseGramUsdSell + (withJODMaking || 0) : baseGramUsdBuy + (withJODMaking || 0);
+              const finalGramUsd24 = product.karat === "24" ? baseGramUsdBuy24 + (withJODMaking || 0) : 0;
+              const priceUsd = product.karat === "24" ? finalGramUsd24 * (product.weightGrams || 0) : finalGramUsd * (product.weightGrams || 0);
               const priceJod = priceUsd * usdToJodNum;
               const priceIls = priceUsd * usdToIlsNum;
 
@@ -421,7 +618,7 @@ export const GoldPricingSettingsScreen: React.FC = () => {
                   />
 
                   <Text style={[styles.label, { color: theme.darkText }]}>
-                    المصنعية لكل غرام (USD)
+                    المصنعية لكل غرام (JOD)
                   </Text>
                   <TextInput
                     style={[
@@ -483,99 +680,7 @@ export const GoldPricingSettingsScreen: React.FC = () => {
   );
 };
 
-// const styles = StyleSheet.create({
-//   loadingContainer: {
-//     padding: spacing.lg,
-//   },
-//   headerBlock: {
-//     marginBottom: spacing.lg,
-//   },
-//   screenTitle: {
-//     fontSize: fontSizes.xxl,
-//     fontWeight: fontWeights.bold,
-//     textAlign: 'center',
-//     marginTop: spacing.sm,
-//   },
-//   sectionTitle: {
-//     fontSize: 18,
-//     fontWeight: fontWeights.bold,
-//     textAlign: 'right',
-//     marginBottom: spacing.md,
-//   },
-//   label: {
-//     marginTop: spacing.md,
-//     marginBottom: spacing.xs,
-//     textAlign: 'right',
-//     fontSize: fontSizes.md,
-//   },
-//   inputBox: {
-//     borderWidth: 1,
-//     borderRadius: borderRadius.md,
-//     paddingHorizontal: spacing.md,
-//     paddingVertical: spacing.sm,
-//     fontSize: fontSizes.md,
-//     textAlign: 'right',
-//   },
-//   helperText: {
-//     marginTop: spacing.sm,
-//     textAlign: 'right',
-//     fontSize: fontSizes.sm,
-//   },
-//   productCard: {
-//     marginTop: spacing.md,
-//     borderWidth: 1,
-//     borderRadius: borderRadius.lg,
-//     padding: spacing.md,
-//   },
-//   titleRow: {
-//     flexDirection: 'row',
-//     alignItems: 'flex-start',
-//     gap: spacing.sm,
-//   },
-//   actionsRow: {
-//     flexDirection: 'row',
-//     gap: spacing.sm,
-//   },
-//   actionBtn: {
-//     paddingHorizontal: spacing.md,
-//     paddingVertical: spacing.xs,
-//     borderRadius: borderRadius.md,
-//   },
-//   actionText: {
-//     fontSize: fontSizes.sm,
-//     fontWeight: fontWeights.medium,
-//   },
-//   productTitle: {
-//     fontWeight: fontWeights.bold,
-//     textAlign: 'right',
-//     fontSize: fontSizes.md,
-//   },
-//   productSubtitle: {
-//     textAlign: 'right',
-//     marginTop: 4,
-//     fontSize: fontSizes.sm,
-//   },
-//   productImage: {
-//     width: '100%',
-//     height: 170,
-//     borderRadius: borderRadius.md,
-//     marginTop: spacing.md,
-//   },
-//   finalPriceTitle: {
-//     fontWeight: fontWeights.bold,
-//     textAlign: 'right',
-//     marginBottom: spacing.xs,
-//   },
-//   finalPriceText: {
-//     textAlign: 'right',
-//     marginTop: 2,
-//   },
-//   emptyText: {
-//     textAlign: 'center',
-//     marginTop: spacing.lg,
-//     fontSize: fontSizes.md,
-//   },
-// });
+
 const styles = StyleSheet.create({
   inputBox: {
     borderWidth: 1,

@@ -12,6 +12,7 @@ export type ProductDoc = {
   discountedPriceIls: number;
   imageUrl: string;
   isActive: boolean;
+  soldOut: boolean;
   createdAt?: any;
   updatedAt?: any;
 };
@@ -31,6 +32,7 @@ const mapProductDoc = (id: string, data: any): ProductDoc => ({
   discountedPriceIls: toNumber(data?.discountedPriceIls),
   imageUrl: data?.imageUrl ?? '',
   isActive: data?.isActive ?? true,
+  soldOut: data.soldOut ?? false,
   createdAt: data?.createdAt,
   updatedAt: data?.updatedAt,
 });
@@ -75,6 +77,7 @@ export const createProduct = async (
     imageUrl: data.imageUrl ?? '',
     isActive: data.isActive ?? true,
     createdAt: serverTimestamp(),
+    soldOut: data.soldOut ?? false,
     updatedAt: serverTimestamp(),
   });
 
@@ -101,6 +104,7 @@ export const updateProduct = async (
   }
   if (data.imageUrl !== undefined) payload.imageUrl = data.imageUrl;
   if (data.isActive !== undefined) payload.isActive = data.isActive;
+  if (data.soldOut !== undefined) payload.soldOut = data.soldOut;
 
   await updateDoc(doc(db, 'products', id), payload);
 };

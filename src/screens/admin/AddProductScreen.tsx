@@ -22,11 +22,7 @@ import { ErrorMessage } from '../../components/ErrorMessage';
 import { useTheme } from '../../context/ThemeContext';
 import { spacing, borderRadius, fontSizes, fontWeights } from '../../theme/colors';
 
-import {
-  createProduct,
-  updateProduct,
-  getProductById,
-} from '../../services/firestoreProducts';
+import { createProduct, updateProduct, getProductById, } from '../../services/firestoreProducts';
 import { uploadProductImage } from '../../services/storageProducts';
 
 type AdminProduct = {
@@ -39,6 +35,7 @@ type AdminProduct = {
   discountedPriceIls: number;
   imageUrl: string;
   isActive: boolean;
+  soldOut: boolean;
 };
 
 type RouteParams = {
@@ -65,7 +62,7 @@ export const AddProductScreen: React.FC = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const { theme } = useTheme();
-
+  const [soldOut, setSoldOut] = useState(false);
   const { productId } = (route.params as RouteParams) || {};
   const isEdit = useMemo(() => !!productId, [productId]);
 
@@ -105,6 +102,7 @@ export const AddProductScreen: React.FC = () => {
       setImageUrl(product.imageUrl ?? '');
       setImageUri('');
       setIsActive(product.isActive ?? true);
+      setSoldOut(!!product.soldOut);
     } catch (err) {
       console.error('loadProduct error:', err);
       setError('فشل تحميل بيانات المنتج');
@@ -174,6 +172,7 @@ export const AddProductScreen: React.FC = () => {
         discountedPriceIls: parseNum(discountedPrice),
         imageUrl: finalImageUrl,
         isActive,
+        soldOut
       };
 
       if (isEdit && productId) {
@@ -397,7 +396,17 @@ export const AddProductScreen: React.FC = () => {
                 المنتج نشط
               </Text>
             </View>
-
+            <View style={[styles.switchContainer, { backgroundColor: theme.surface, marginTop: 12 }]}>
+              <Switch
+                value={soldOut}
+                onValueChange={setSoldOut}
+                trackColor={{ false: theme.lightGray, true: '#D9534F' }}
+                thumbColor={theme.white}
+              />
+              <Text style={[styles.switchLabel, { color: theme.darkText }]}>
+                المنتج نفدت كميته
+              </Text>
+            </View>
             <PrimaryButton
               title={
                 loading

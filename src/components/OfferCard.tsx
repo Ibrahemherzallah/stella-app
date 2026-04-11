@@ -1,5 +1,15 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, Image, StyleSheet, ActivityIndicator, TouchableOpacity, Modal, ScrollView, Platform, } from 'react-native';
+import {
+  View,
+  Text,
+  Image,
+  StyleSheet,
+  ActivityIndicator,
+  TouchableOpacity,
+  Modal,
+  ScrollView,
+  Platform,
+} from 'react-native';
 import { X } from 'lucide-react-native';
 import { useTheme } from '../context/ThemeContext';
 import { spacing, borderRadius, fontSizes, fontWeights } from '../theme/colors';
@@ -13,6 +23,7 @@ interface Offer {
   discountedPriceIls: number;
   imageUrl: string;
   isActive: boolean;
+  soldOut?: boolean;
 }
 
 interface OfferCardProps {
@@ -23,6 +34,8 @@ export const OfferCard: React.FC<OfferCardProps> = ({ offer }) => {
   const { theme } = useTheme();
   const [imageLoading, setImageLoading] = useState(true);
   const [previewVisible, setPreviewVisible] = useState(false);
+  console.log("offer is: ",offer)
+  const isSoldOut = !!offer.soldOut;
 
   const discountPercentage = useMemo(() => {
     const original = Number(offer.originalPriceIls) || 0;
@@ -31,17 +44,19 @@ export const OfferCard: React.FC<OfferCardProps> = ({ offer }) => {
     if (original <= 0 || discounted >= original) return 0;
     return Math.round(((original - discounted) / original) * 100);
   }, [offer.originalPriceIls, offer.discountedPriceIls]);
-
+  console.log("isSoldOut is : " , isSoldOut)
   return (
     <>
       <TouchableOpacity
-        activeOpacity={0.92}
+        activeOpacity={isSoldOut ? 1 : 0.92}
+        disabled={isSoldOut}
         onPress={() => setPreviewVisible(true)}
         style={[
           styles.container,
           {
             backgroundColor: theme.surface,
             shadowColor: theme.darkText,
+            opacity: isSoldOut ? 0.88 : 1,
           },
         ]}
       >
@@ -59,12 +74,19 @@ export const OfferCard: React.FC<OfferCardProps> = ({ offer }) => {
 
           <Image
             source={{ uri: offer.imageUrl }}
-            style={styles.image}
+            style={[
+              styles.image,
+              isSoldOut ? styles.soldOutImage : null,
+            ]}
             onLoadStart={() => setImageLoading(true)}
             onLoadEnd={() => setImageLoading(false)}
           />
 
-          {discountPercentage > 0 ? (
+          {isSoldOut ? (
+            <View style={styles.soldOutBadge}>
+              <Text style={styles.soldOutBadgeText}>نفدت الكمية</Text>
+            </View>
+          ) : discountPercentage > 0 ? (
             <View style={[styles.badge, { backgroundColor: theme.goldPrimary }]}>
               <Text style={[styles.badgeText, { color: theme.white }]}>
                 %{discountPercentage}-
@@ -83,67 +105,77 @@ export const OfferCard: React.FC<OfferCardProps> = ({ offer }) => {
           </Text>
 
           <View style={[styles.priceBox, { backgroundColor: theme.background }]}>
-            <View style={styles.priceRow}>
-              <Text style={[styles.priceLabel, { color: theme.lightText }]}>
-                السعر الأصلي
-              </Text>
-              <Text style={[styles.originalPrice, { color: theme.lightText }]}>
-                {offer.originalPriceIls} ₪
-              </Text>
-            </View>
+            {isSoldOut ? (
+              <View style={styles.soldOutPriceBox}>
+                <Text style={styles.soldOutPriceText}>غير متوفر حالياً</Text>
+              </View>
+            ) : (
+              <>
+                <View style={styles.priceRow}>
+                  <Text style={[styles.priceLabel, { color: theme.lightText }]}>
+                    السعر الأصلي
+                  </Text>
+                  <Text style={[styles.originalPrice, { color: theme.lightText }]}>
+                    {offer.originalPriceIls} ₪
+                  </Text>
+                </View>
 
-            <View style={styles.priceRow}>
-              <Text style={[styles.priceLabel, { color: theme.lightText }]}>
-                سعر العرض
-              </Text>
-              <Text style={[styles.discountedPrice, { color: theme.goldPrimary }]}>
-                {offer.discountedPriceIls} ₪
-              </Text>
-            </View>
+                <View style={styles.priceRow}>
+                  <Text style={[styles.priceLabel, { color: theme.lightText }]}>
+                    سعر العرض
+                  </Text>
+                  <Text style={[styles.discountedPrice, { color: theme.goldPrimary }]}>
+                    {offer.discountedPriceIls} ₪
+                  </Text>
+                </View>
+              </>
+            )}
           </View>
         </View>
       </TouchableOpacity>
 
-      <Modal
-        visible={previewVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setPreviewVisible(false)}
-      >
-        <View style={styles.modalContainer}>
-          <TouchableOpacity
-            style={styles.modalBackdrop}
-            activeOpacity={1}
-            onPress={() => setPreviewVisible(false)}
-          />
-
-          <TouchableOpacity
-            style={[styles.closeButton, { backgroundColor: 'rgba(0,0,0,0.55)' }]}
-            onPress={() => setPreviewVisible(false)}
-            activeOpacity={0.85}
-          >
-            <X size={22} color="#fff" />
-          </TouchableOpacity>
-
-          <ScrollView
-            style={styles.zoomWrapper}
-            contentContainerStyle={styles.zoomContent}
-            maximumZoomScale={3}
-            minimumZoomScale={1}
-            pinchGestureEnabled
-            bouncesZoom={Platform.OS === 'ios'}
-            showsHorizontalScrollIndicator={false}
-            showsVerticalScrollIndicator={false}
-            centerContent
-          >
-            <Image
-              source={{ uri: offer.imageUrl }}
-              style={styles.fullImage}
-              resizeMode="contain"
+      {!isSoldOut ? (
+        <Modal
+          visible={previewVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setPreviewVisible(false)}
+        >
+          <View style={styles.modalContainer}>
+            <TouchableOpacity
+              style={styles.modalBackdrop}
+              activeOpacity={1}
+              onPress={() => setPreviewVisible(false)}
             />
-          </ScrollView>
-        </View>
-      </Modal>
+
+            <TouchableOpacity
+              style={[styles.closeButton, { backgroundColor: 'rgba(0,0,0,0.55)' }]}
+              onPress={() => setPreviewVisible(false)}
+              activeOpacity={0.85}
+            >
+              <X size={22} color="#fff" />
+            </TouchableOpacity>
+
+            <ScrollView
+              style={styles.zoomWrapper}
+              contentContainerStyle={styles.zoomContent}
+              maximumZoomScale={3}
+              minimumZoomScale={1}
+              pinchGestureEnabled
+              bouncesZoom={Platform.OS === 'ios'}
+              showsHorizontalScrollIndicator={false}
+              showsVerticalScrollIndicator={false}
+              centerContent
+            >
+              <Image
+                source={{ uri: offer.imageUrl }}
+                style={styles.fullImage}
+                resizeMode="contain"
+              />
+            </ScrollView>
+          </View>
+        </Modal>
+      ) : null}
     </>
   );
 };
@@ -169,6 +201,9 @@ const styles = StyleSheet.create({
     height: '100%',
     resizeMode: 'cover',
   },
+  soldOutImage: {
+    opacity: 0.5,
+  },
   imagePlaceholder: {
     position: 'absolute',
     top: 0,
@@ -188,6 +223,20 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.sm,
   },
   badgeText: {
+    fontSize: fontSizes.xs,
+    fontWeight: fontWeights.bold,
+  },
+  soldOutBadge: {
+    position: 'absolute',
+    top: spacing.sm,
+    left: spacing.sm,
+    backgroundColor: 'rgba(217, 83, 79, 0.95)',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.sm,
+  },
+  soldOutBadgeText: {
+    color: '#fff',
     fontSize: fontSizes.xs,
     fontWeight: fontWeights.bold,
   },
@@ -228,6 +277,17 @@ const styles = StyleSheet.create({
   discountedPrice: {
     fontSize: fontSizes.lg,
     fontWeight: fontWeights.bold,
+  },
+  soldOutPriceBox: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.sm,
+  },
+  soldOutPriceText: {
+    color: '#D9534F',
+    fontSize: fontSizes.md,
+    fontWeight: fontWeights.bold,
+    textAlign: 'center',
   },
 
   modalContainer: {
