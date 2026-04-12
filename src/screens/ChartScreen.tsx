@@ -40,7 +40,11 @@ export const ChartScreen: React.FC = () => {
 
   const reversedData = useMemo(() => {
     if (!data?.data?.length) return [];
-    return [...data.data].reverse();
+
+    return [...data.data]
+      .slice(-240) // last 20 years
+      .filter((_, i) => i % 2 === 0) // every 2 months
+      .reverse();
   }, [data]);
 
   if (loading) {
@@ -162,7 +166,7 @@ export const ChartScreen: React.FC = () => {
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             <LineChart
               data={chartData}
-              width={Math.max(screenWidth * 2.2, reversedData.length * 14)}
+              width={Math.max(screenWidth, reversedData.length * 5)}
               height={300}
               chartConfig={chartConfig}
               bezier

@@ -45,9 +45,7 @@ const karatMultiplier = (karat: string) => {
   }
 };
 
-export const getHistory = async (
-  karat: '24k' | '22k' | '21k' | '18k' = '21k'
-): Promise<GoldHistoryResponse> => {
+export const getHistory = async (karat: '24k' | '22k' | '21k' | '18k' = '21k'): Promise<GoldHistoryResponse> => {
   const multiplier = karatMultiplier(karat);
 
   const data: GoldHistoryPoint[] = GOLD_HISTORY_MONTHLY_USD.map((point) => {
