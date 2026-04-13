@@ -1,40 +1,68 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
-import * as SecureStore from "expo-secure-store";
 import { onAuthStateChanged } from "firebase/auth";
-import { auth } from "../services/firebase";
-import { firebaseSignIn, firebaseLogout } from "../services/firebaseAuth";
+import { auth, db } from "../services/firebase";
+import { doc, getDoc, setDoc } from "firebase/firestore";
+import { sendOTP, confirmOTP } from "../services/firebaseAuth";
 
 interface User {
   id: string;
-  email: string;
+  phone: string | null;
 }
 
 interface AuthContextType {
   user: User | null;
+  role: string | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  signIn: (credentials: { email: string; password: string }) => Promise<void>;
+  sendPhoneOTP: (phone: string, verifier: any) => Promise<void>;
+  verifyOTP: (code: string) => Promise<void>;
   signOut: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const USER_KEY = "stella_user";
-
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [role, setRole] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [verificationId, setVerificationId] = useState<string | null>(null);
+
+  const sendPhoneOTP = async (phone: string, verifier: any) => {
+    const confirmation = await sendOTP(phone, verifier);
+    setVerificationId(confirmation.verificationId);
+  };
+
+  const verifyOTP = async (code: string) => {
+    if (!verificationId) throw new Error("No verification ID");
+    await confirmOTP(verificationId, code);
+  };
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (fbUser) => {
       try {
         if (fbUser) {
-          const u = { id: fbUser.uid, email: fbUser.email || "" };
+          const u = {
+            id: fbUser.uid,
+            phone: fbUser.phoneNumber || null,
+          };
           setUser(u);
-          await SecureStore.setItemAsync(USER_KEY, JSON.stringify(u));
+
+          const userRef = doc(db, "users", fbUser.uid);
+          const snap = await getDoc(userRef);
+
+          if (!snap.exists()) {
+            // 🔐 create user WITHOUT admin role
+            await setDoc(userRef, {
+              phone: fbUser.phoneNumber,
+              role: "user", // default
+            });
+            setRole("user");
+          } else {
+            setRole(snap.data().role || null);
+          }
         } else {
           setUser(null);
-          await SecureStore.deleteItemAsync(USER_KEY);
+          setRole(null);
         }
       } finally {
         setIsLoading(false);
@@ -44,24 +72,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => unsub();
   }, []);
 
-  const signIn = async ({ email, password }: { email: string; password: string }) => {
-    console.log("email is: ", email)
-    console.log("password is: ", password)
-    await firebaseSignIn(email, password);
-    // onAuthStateChanged will update user
-  };
-
   const signOut = async () => {
-    await firebaseLogout();
+    await auth.signOut();
   };
 
   return (
     <AuthContext.Provider
       value={{
         user,
+        role,
         isLoading,
         isAuthenticated: !!user,
-        signIn,
+        sendPhoneOTP,
+        verifyOTP,
         signOut,
       }}
     >
@@ -72,6 +95,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
 export const useAuth = () => {
   const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error("useAuth must be used within an AuthProvider");
+  if (!ctx) throw new Error("useAuth must be used within AuthProvider");
   return ctx;
 };
