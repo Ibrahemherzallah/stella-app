@@ -11,7 +11,7 @@ import { AdminStackNavigator } from './AdminStackNavigator';
 const Stack = createNativeStackNavigator();
 
 export const RootNavigator: React.FC = () => {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, role } = useAuth();
   const { theme } = useTheme();
 
   if (isLoading) {
@@ -25,7 +25,7 @@ export const RootNavigator: React.FC = () => {
   return (
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false, }}>
-        {isAuthenticated ? (
+        {isAuthenticated && role === "admin" ? (
           <Stack.Screen name="Admin" component={AdminStackNavigator} />
         ) : (
           <Stack.Screen name="Guest" component={GuestTabNavigator} />
