@@ -1,24 +1,27 @@
-import { signInWithEmailAndPassword, signOut as fbSignOut } from "firebase/auth";
-import { doc, getDoc, setDoc } from "firebase/firestore";
-import { auth, db } from "./firebase";
+// src/services/firebaseAuth.ts
+import { signInWithEmailAndPassword, signOut, EmailAuthProvider, reauthenticateWithCredential, updatePassword, } from "firebase/auth";
+import { auth } from "./firebase";
 
-export async function firebaseSignIn(email: string, password: string) {
-  const cred = await signInWithEmailAndPassword(auth, email, password);
+export const firebaseSignIn = async (email: string, password: string) => {
+  return await signInWithEmailAndPassword(auth, email, password);
+};
 
-  // Ensure user profile exists (no manual collections needed)
-  const uid = cred.user.uid;
-  const userRef = doc(db, "users", uid);
-  const snap = await getDoc(userRef);
+export const firebaseLogout = async () => {
+  return await signOut(auth);
+};
 
-  // Create user doc if not exist (role will be set manually OR bootstrap once)
-  if (!snap.exists()) {
-    await setDoc(userRef, { email, role: "admin" }, { merge: true });
-    // ⚠️ If you want role NOT auto-set, remove role here and set it in console once.
+export const firebaseChangePassword = async (
+  currentPassword: string,
+  newPassword: string
+) => {
+  const user = auth.currentUser;
+
+  if (!user || !user.email) {
+    throw new Error("المستخدم غير مسجل الدخول");
   }
 
-  return cred.user;
-}
+  const credential = EmailAuthProvider.credential(user.email, currentPassword);
 
-export async function firebaseLogout() {
-  await fbSignOut(auth);
-}
+  await reauthenticateWithCredential(user, credential);
+  await updatePassword(user, newPassword);
+};

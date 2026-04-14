@@ -1,4 +1,3 @@
-// src/navigation/RootNavigator.tsx
 import React from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
@@ -11,7 +10,7 @@ import { AdminStackNavigator } from './AdminStackNavigator';
 const Stack = createNativeStackNavigator();
 
 export const RootNavigator: React.FC = () => {
-  const { isAuthenticated, isLoading, role } = useAuth();
+  const { isAuthenticated, isLoading, isAdmin } = useAuth();
   const { theme } = useTheme();
 
   if (isLoading) {
@@ -24,8 +23,8 @@ export const RootNavigator: React.FC = () => {
 
   return (
     <NavigationContainer>
-      <Stack.Navigator screenOptions={{ headerShown: false, }}>
-        {isAuthenticated && role === "admin" ? (
+      <Stack.Navigator screenOptions={{ headerShown: false }}>
+        {isAuthenticated && isAdmin ? (
           <Stack.Screen name="Admin" component={AdminStackNavigator} />
         ) : (
           <Stack.Screen name="Guest" component={GuestTabNavigator} />
