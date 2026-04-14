@@ -7,16 +7,16 @@ import { ProductManagementScreen } from '../screens/admin/ProductManagementScree
 import { AddProductScreen } from '../screens/admin/AddProductScreen';
 import { SettingsScreen } from '../screens/admin/SettingsScreen';
 import { GoldPricingSettingsScreen } from '../screens/admin/GoldPricingSettingsScreen';
+import { AddGoldItemScreen } from '@/src/screens/admin/AddGoldItemScreen';
+import { ChangePasswordScreen } from '@/src/screens/admin/ChangePasswordScreen';
 
 import { useTheme } from '../context/ThemeContext';
 import { fontSizes } from '../theme/colors';
 import { Package, Settings, ClipboardList } from 'lucide-react-native';
-import { AddGoldItemScreen } from '@/src/screens/admin/AddGoldItemScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 
-/** Tab 1: Products stack (example: gold pricing + add/edit) */
 const ProductsStack = () => {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
@@ -27,12 +27,20 @@ const ProductsStack = () => {
   );
 };
 
-/** Tab 2: Product management stack (list + add/edit) */
 const ProductManagementStack = () => {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="ProductManagement" component={ProductManagementScreen} />
       <Stack.Screen name="AddProduct" component={AddProductScreen} />
+    </Stack.Navigator>
+  );
+};
+
+const SettingsStack = () => {
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="Settings" component={SettingsScreen} />
+      <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
     </Stack.Navigator>
   );
 };
@@ -79,7 +87,7 @@ export const AdminStackNavigator: React.FC = () => {
 
       <Tab.Screen
         name="SettingsTab"
-        component={SettingsScreen}
+        component={SettingsStack}
         options={{
           tabBarLabel: 'الإعدادات',
           tabBarIcon: ({ color, size }) => <Settings size={size} color={color} />,

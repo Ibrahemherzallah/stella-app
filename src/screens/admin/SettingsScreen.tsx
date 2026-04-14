@@ -13,6 +13,7 @@ import type { Settings } from '../../types';
 import { ThemeToggle } from '@/src/components/ThemeToggle';
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { getPublicSettings, savePublicSettings, getRulesList, saveRulesList, } from '../../services/goldSettingsService';
+import { useNavigation } from '@react-navigation/native';
 
 export const SettingsScreen: React.FC = () => {
   const { signOut } = useAuth();
@@ -26,6 +27,7 @@ export const SettingsScreen: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const navigation = useNavigation();
 
   useEffect(() => {
     fetchSettings();
@@ -247,6 +249,12 @@ export const SettingsScreen: React.FC = () => {
                   textAlign="right"
                 />
               </View>
+
+              <PrimaryButton
+                title={'تغيير كلمة المرور'}
+                onPress={() => navigation.navigate('ChangePassword' as never)}
+                style={styles.button}
+              />
             </View>
 
             <PrimaryButton
