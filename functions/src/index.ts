@@ -54,7 +54,7 @@ export const notifyUsersOnGoldSettingsUpdate = onDocumentUpdated(
         title: 'تحديث أسعار الذهب',
         body: 'تم تحديث الأسعار من قبل الإدارة',
         data: {
-          type: 'gold-settings-updated',
+          type: 'stellagold-settings-updated',
           screen: 'PricesScreen',
         },
       }));

@@ -1,4 +1,4 @@
-// src/types/gold.ts
+// src/types/stellagold.ts
 export interface GoldSettings {
   goldOunceUsd: number;
   premiumOunceUsd: number;

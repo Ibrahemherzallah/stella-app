@@ -9,6 +9,7 @@ import { CurrencyProvider } from '@/src/context/CurrencyContext';
 import { AuthProvider } from '@/src/context/AuthContext';
 import { RootNavigator } from '@/src/navigation/RootNavigator';
 import { registerGuestForPushNotificationsAsync } from '@/src/services/notificationService';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 Notifications.setNotificationHandler({
     handleNotification: async () => ({
@@ -54,12 +55,14 @@ export default function RootLayout() {
     useFrameworkReady();
 
     return (
-      <ThemeProvider>
-          <CurrencyProvider>
-              <AuthProvider>
-                  <AppBootstrap />
-              </AuthProvider>
-          </CurrencyProvider>
-      </ThemeProvider>
+      <SafeAreaProvider>
+          <ThemeProvider>
+              <CurrencyProvider>
+                  <AuthProvider>
+                      <AppBootstrap />
+                  </AuthProvider>
+              </CurrencyProvider>
+          </ThemeProvider>
+      </SafeAreaProvider>
     );
 }

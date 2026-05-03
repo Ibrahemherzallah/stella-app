@@ -16,12 +16,12 @@
 
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.stella.gold"
+      "bundleIdentifier": "com.ibrahemherzallah.stellagold"
     },
 
     "android": {
-      "package": "com.stella.gold",
-      "googleServicesFile": "./google-services.json",
+      "package": "com.ibrahemherzallah.stellagold",
+      "googleServicesFile": "./android/app/google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#000000"
