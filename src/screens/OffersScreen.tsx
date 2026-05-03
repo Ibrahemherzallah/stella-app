@@ -1,22 +1,35 @@
 // src/screens/OffersScreen.tsx
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, Linking, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, FlatList, Linking, TouchableOpacity, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { ScreenContainer } from '../components/ScreenContainer';
 import { OfferCard } from '../components/OfferCard';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import { EmptyState } from '../components/EmptyState';
 import { ErrorMessage } from '../components/ErrorMessage';
-import { getOffers, getSettings } from '../services/api';
 import { useTheme } from '../context/ThemeContext';
 import { spacing, fontSizes, fontWeights, borderRadius } from '../theme/colors';
-import type { Offer, Settings } from '../types';
 import { Facebook, Instagram, MessageCircle } from 'lucide-react-native';
-import { SafeAreaView } from 'react-native-safe-area-context'
+
+import { listActiveOffers, ProductDoc } from '../services/firestoreProducts';
+import { getPublicSettings, PublicSettings } from '../services/goldSettingsService';
+
+type Offer = {
+  id: string;
+  name: string;
+  karat: string;
+  weightGrams: number;
+  originalPriceIls: number;
+  discountedPriceIls: number;
+  imageUrl: string;
+  isActive: boolean;
+};
 
 export const OffersScreen: React.FC = () => {
   const { theme } = useTheme();
+
   const [offers, setOffers] = useState<Offer[]>([]);
-  const [settings, setSettings] = useState<Settings | null>(null);
+  const [settings, setSettings] = useState<PublicSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -27,25 +40,76 @@ export const OffersScreen: React.FC = () => {
   const fetchData = async () => {
     try {
       setError(null);
-      const [offersData, settingsData] = await Promise.all([
-        getOffers(),
-        getSettings(),
+      setLoading(true);
+
+      const [products, settingsData] = await Promise.all([
+        listActiveOffers(),
+        getPublicSettings(),
       ]);
-      setOffers(offersData.filter((offer) => offer.isActive));
+      console.log("products is : ", products)
+
+      const mapped: Offer[] = products.map((p: ProductDoc) => ({
+        id: p.id,
+        name: p.name,
+        karat: p.karat,
+        weightGrams: p.weightGrams,
+        originalPriceIls: p.originalPriceIls,
+        discountedPriceIls: p.discountedPriceIls,
+        imageUrl: p.imageUrl,
+        isActive: p.isActive,
+        soldOut: p.soldOut
+      }));
+
+      setOffers(mapped);
       setSettings(settingsData);
     } catch (err) {
+      console.error('OffersScreen fetchData error:', err);
       setError('حدث خطأ أثناء تحميل العروض');
-      console.error(err);
     } finally {
       setLoading(false);
     }
   };
+  const openSocialMedia = async (url: string) => {
+    if (!url) return;
 
-  const openSocialMedia = (url: string) => {
-    Linking.openURL(url).catch((err) =>
-      console.error('Error opening link:', err)
-    );
+    try {
+      const supported = await Linking.canOpenURL(url);
+      if (!supported) return;
+
+      await Linking.openURL(url);
+    } catch (err) {
+      console.error('Error opening link:', err);
+    }
   };
+  const openWhatsApp = async (value: string) => {
+    try {
+      if (!value?.trim()) return;
+
+      const cleaned = value.replace(/[^\d+]/g, '');
+
+      // remove leading +
+      const phone = cleaned.startsWith('+') ? cleaned.slice(1) : cleaned;
+      console.log("phone is :" , phone)
+
+      const url = `https://wa.me/${phone}`;
+      console.log("url is :" , url)
+      const supported = await Linking.canOpenURL(url);
+      if (!supported) {
+        Alert.alert('خطأ', 'تعذر فتح واتساب');
+        return;
+      }
+
+      await Linking.openURL(url);
+    } catch (error) {
+      console.error('openWhatsApp error:', error);
+      Alert.alert('خطأ', 'حدث خطأ أثناء فتح واتساب');
+    }
+  };
+  console.log("settingsis is: ", settings)
+  const hasSocialLinks =
+    !!settings?.socialMedia?.whatsapp ||
+    !!settings?.socialMedia?.instagram ||
+    !!settings?.socialMedia?.facebook;
 
   if (loading) {
     return (
@@ -56,7 +120,7 @@ export const OffersScreen: React.FC = () => {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: `${theme.background}`}}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }}>
       <View style={[styles.container, { backgroundColor: theme.background }]}>
         <View style={styles.header}>
           <Text style={[styles.title, { color: theme.darkText }]}>العروض الخاصة</Text>
@@ -65,7 +129,7 @@ export const OffersScreen: React.FC = () => {
           </Text>
         </View>
 
-        {error && <ErrorMessage message={error} />}
+        {error ? <ErrorMessage message={error} /> : null}
 
         {offers.length === 0 ? (
           <EmptyState message="لا توجد عروض متاحة حالياً" icon="✨" />
@@ -78,39 +142,52 @@ export const OffersScreen: React.FC = () => {
             columnWrapperStyle={styles.row}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
+            onRefresh={fetchData}
+            refreshing={loading}
           />
         )}
 
-        {settings && (
+        {hasSocialLinks ? (
           <View
             style={[
               styles.socialContainer,
               { backgroundColor: theme.surface, shadowColor: theme.darkText },
             ]}
           >
-            <Text style={[styles.socialTitle, { color: theme.darkText }]}>تابعونا</Text>
+            <Text style={[styles.socialTitle, { color: theme.darkText }]}>
+              تابعونا
+            </Text>
+
             <View style={styles.socialButtons}>
-              <TouchableOpacity
-                style={[styles.socialButton, styles.whatsappButton]}
-                onPress={() => openSocialMedia(settings.socialMedia.whatsapp)}
-              >
-                <MessageCircle size={24} color={theme.white} />
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.socialButton, styles.instagramButton]}
-                onPress={() => openSocialMedia(settings.socialMedia.instagram)}
-              >
-                <Instagram size={24} color={theme.white} />
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.socialButton, styles.facebookButton]}
-                onPress={() => openSocialMedia(settings.socialMedia.facebook)}
-              >
-                <Facebook size={24} color={theme.white} />
-              </TouchableOpacity>
+              {settings?.socialMedia?.whatsapp ? (
+                <TouchableOpacity
+                  style={[styles.socialButton, styles.whatsappButton]}
+                  onPress={() => openWhatsApp(settings.socialMedia.whatsapp)}
+                >
+                  <MessageCircle size={24} color={theme.white} />
+                </TouchableOpacity>
+              ) : null}
+
+              {settings?.socialMedia?.instagram ? (
+                <TouchableOpacity
+                  style={[styles.socialButton, styles.instagramButton]}
+                  onPress={() => openSocialMedia(settings.socialMedia.instagram)}
+                >
+                  <Instagram size={24} color={theme.white} />
+                </TouchableOpacity>
+              ) : null}
+
+              {settings?.socialMedia?.facebook ? (
+                <TouchableOpacity
+                  style={[styles.socialButton, styles.facebookButton]}
+                  onPress={() => openSocialMedia(settings.socialMedia.facebook)}
+                >
+                  <Facebook size={24} color={theme.white} />
+                </TouchableOpacity>
+              ) : null}
             </View>
           </View>
-        )}
+        ) : null}
       </View>
     </SafeAreaView>
   );
@@ -125,7 +202,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   title: {
-    fontSize: fontSizes.xxxl,
+    fontSize: fontSizes.xxl,
     fontWeight: fontWeights.bold,
     textAlign: 'center',
     marginBottom: spacing.xs,

@@ -1,92 +1,105 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import * as SecureStore from 'expo-secure-store';
-import { login as apiLogin, setAuthToken } from '../services/api';
-import type { LoginRequest, LoginResponse } from '../types';
+// src/context/AuthContext.tsx
+import React, { createContext, useContext, useEffect, useState } from "react";
+import * as SecureStore from "expo-secure-store";
+import { onAuthStateChanged } from "firebase/auth";
+import { doc, getDoc } from "firebase/firestore";
+import { auth, db } from "../services/firebase";
+import {
+  firebaseSignIn,
+  firebaseLogout,
+  firebaseChangePassword,
+} from "../services/firebaseAuth";
 
 interface User {
   id: string;
   email: string;
-  name: string;
+  role: string | null;
+  active: boolean;
 }
 
 interface AuthContextType {
   user: User | null;
-  token: string | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  signIn: (credentials: LoginRequest) => Promise<void>;
+  isAdmin: boolean;
+  signIn: (credentials: { email: string; password: string }) => Promise<void>;
   signOut: () => Promise<void>;
+  changePassword: (data: {
+    currentPassword: string;
+    newPassword: string;
+  }) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const TOKEN_KEY = 'stella_auth_token';
-const USER_KEY = 'stella_user';
+const USER_KEY = "stella_user";
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
-  children,
-}) => {
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    loadStoredAuth();
+    const unsub = onAuthStateChanged(auth, async (fbUser) => {
+      try {
+        if (fbUser) {
+          const userRef = doc(db, "users", fbUser.uid);
+          const userSnap = await getDoc(userRef);
+
+          const role = userSnap.exists() ? userSnap.data().role ?? null : null;
+          const active = userSnap.exists() ? userSnap.data().active ?? false : false;
+
+          const u: User = {
+            id: fbUser.uid,
+            email: fbUser.email || "",
+            role,
+            active,
+          };
+
+          setUser(u);
+          await SecureStore.setItemAsync(USER_KEY, JSON.stringify(u));
+        } else {
+          setUser(null);
+          await SecureStore.deleteItemAsync(USER_KEY);
+        }
+      } catch (error) {
+        console.error("Auth state error:", error);
+        setUser(null);
+      } finally {
+        setIsLoading(false);
+      }
+    });
+
+    return () => unsub();
   }, []);
 
-  const loadStoredAuth = async () => {
-    try {
-      const storedToken = await SecureStore.getItemAsync(TOKEN_KEY);
-      const storedUser = await SecureStore.getItemAsync(USER_KEY);
-
-      if (storedToken && storedUser) {
-        setToken(storedToken);
-        setUser(JSON.parse(storedUser));
-        setAuthToken(storedToken);
-      }
-    } catch (error) {
-      console.error('Error loading stored auth:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const signIn = async (credentials: LoginRequest) => {
-    try {
-      const response: LoginResponse = await apiLogin(credentials);
-      setToken(response.token);
-      setUser(response.user);
-      setAuthToken(response.token);
-
-      await SecureStore.setItemAsync(TOKEN_KEY, response.token);
-      await SecureStore.setItemAsync(USER_KEY, JSON.stringify(response.user));
-    } catch (error) {
-      throw error;
-    }
+  const signIn = async ({ email, password }: { email: string; password: string }) => {
+    await firebaseSignIn(email, password);
   };
 
   const signOut = async () => {
-    try {
-      setToken(null);
-      setUser(null);
-      setAuthToken(null);
+    await firebaseLogout();
+  };
 
-      await SecureStore.deleteItemAsync(TOKEN_KEY);
-      await SecureStore.deleteItemAsync(USER_KEY);
-    } catch (error) {
-      console.error('Error signing out:', error);
-    }
+  const changePassword = async ({
+                                  currentPassword,
+                                  newPassword,
+                                }: {
+    currentPassword: string;
+    newPassword: string;
+  }) => {
+    await firebaseChangePassword(currentPassword, newPassword);
   };
 
   return (
     <AuthContext.Provider
       value={{
         user,
-        token,
         isLoading,
-        isAuthenticated: !!token && !!user,
+        isAuthenticated: !!user,
+        isAdmin: !!user && user.role === "admin" && user.active,
         signIn,
         signOut,
+        changePassword,
       }}
     >
       {children}
@@ -95,9 +108,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 };
 
 export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error("useAuth must be used within an AuthProvider");
+  return ctx;
 };

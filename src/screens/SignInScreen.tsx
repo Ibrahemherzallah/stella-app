@@ -82,9 +82,6 @@ export const SignInScreen: React.FC = () => {
               style={styles.button}
             />
 
-            <View style={styles.hint}>
-              <Text style={styles.hintText}>للتجربة: admin@stella.com / admin123</Text>
-            </View>
           </View>
         </View>
       </KeyboardAvoidingView>

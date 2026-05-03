@@ -1,13 +1,14 @@
 import React from 'react';
 import { View, Text, Image, StyleSheet } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
-import { spacing, borderRadius, fontSizes, fontWeights } from '../theme/colors';
-import { formatPrice, CurrencyCode } from '../theme/currency';
+import { CurrencyCode, CurrencyRates, formatPrice } from '../theme/currency';
+import { spacing, fontSizes, fontWeights, borderRadius } from '../theme/colors';
 
 interface GoldPriceCardProps {
   title: string;
-  /** Base price in USD */
   basePriceUsd: number;
+  imageUrl?: string;
+  rates: CurrencyRates;
 }
 
 const CURRENCY_ROWS: { code: CurrencyCode; label: string }[] = [
@@ -16,30 +17,36 @@ const CURRENCY_ROWS: { code: CurrencyCode; label: string }[] = [
   { code: 'ILS', label: 'بالشيكل:' },
 ];
 
-export const GoldPriceCard: React.FC<GoldPriceCardProps> = ({ title, basePriceUsd, }) => {
+export const GoldPriceCard: React.FC<GoldPriceCardProps> = ({ title, basePriceUsd, imageUrl, rates, }) => {
   const { theme } = useTheme();
 
   return (
     <View style={[styles.container, { backgroundColor: theme.surface, shadowColor: theme.darkText },]}>
       <View style={styles.imageContainer}>
         <Image
-          source={require('../../assets/images/gold1.jpg')}
+          source={
+            imageUrl
+              ? { uri: imageUrl }
+              : require('../../assets/images/gold1.jpg')
+          }
           style={styles.image}
+          // resizeMode="cover"
         />
       </View>
 
       <View style={styles.content}>
-        <Text style={[styles.title, { color: theme.darkText }]}>{title}</Text>
+        <Text style={[styles.title, { color: theme.darkText }]} numberOfLines={2}>
+          {title}
+        </Text>
 
-        {CURRENCY_ROWS.map(row => (
+        {CURRENCY_ROWS.map((row) => (
           <View style={styles.priceRow} key={row.code}>
-            <Text style={[styles.priceValue, { color: theme.goldPrimary }]}>
-              {formatPrice(basePriceUsd, row.code)}
-            </Text>
             <Text style={[styles.priceLabel, { color: theme.lightText }]}>
               {row.label}
             </Text>
-
+            <Text style={[styles.priceValue, { color: theme.goldPrimary }]}>
+              {formatPrice(basePriceUsd, row.code, rates)}
+            </Text>
           </View>
         ))}
       </View>
@@ -55,7 +62,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 4,
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
     flexDirection: 'row',
   },
   imageContainer: {
