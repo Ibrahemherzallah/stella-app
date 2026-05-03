@@ -8,12 +8,13 @@ import { SignInScreen } from '../screens/SignInScreen';
 import { useTheme } from '../context/ThemeContext';
 import { fontSizes } from '../theme/colors';
 import { DollarSign, TrendingUp, Tag, LogIn } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const Tab = createBottomTabNavigator();
 
 export const GuestTabNavigator: React.FC = () => {
   const { theme } = useTheme();
-
+  const insets = useSafeAreaInsets();
   return (
     <Tab.Navigator
       screenOptions={{
@@ -24,8 +25,8 @@ export const GuestTabNavigator: React.FC = () => {
           backgroundColor: theme.surface,
           borderTopColor: theme.lightGray,
           paddingTop: 8,
-          paddingBottom: 8,
-          height: 70,
+          paddingBottom: Math.max(insets.bottom, 8),
+          height: 70 + Math.max(insets.bottom, 8),
         },
         tabBarLabelStyle: {
           fontSize: fontSizes.xs,
