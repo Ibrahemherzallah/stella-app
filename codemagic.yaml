@@ -25,8 +25,8 @@ workflows:
 
       - name: Install CocoaPods
         script: |
-          cd ios && pod install
-
+          cd ios
+          pod install
 
       - name: Create export options
         script: |
@@ -40,12 +40,19 @@ workflows:
           plutil -lint /Users/builder/export_options.plist
           cat /Users/builder/export_options.plist
 
+      - name: Show iOS files
+        script: |
+          ls ios
+          find ios -name "*.xcworkspace"
 
       - name: Build IPA
         script: |
+          cd ios
+          xcodebuild -list
+
           xcode-project build-ipa \
-            --workspace ios/*.xcworkspace \
-            --scheme "Stella Gold" \
+            --workspace ./*.xcworkspace \
+            --scheme stellagold \
             --archive-flags="-allowProvisioningUpdates" \
             --export-options-plist /Users/builder/export_options.plist
 
