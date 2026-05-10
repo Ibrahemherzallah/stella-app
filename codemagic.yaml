@@ -30,22 +30,23 @@ workflows:
 
       - name: Create export options
         script: |
-          cat > /Users/builder/export_options.plist <<EOF
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-            <key>method</key>
-            <string>app-store-connect</string>
-            <key>signingStyle</key>
-            <string>automatic</string>
-            <key>uploadBitcode</key>
-            <false/>
-            <key>compileBitcode</key>
-            <false/>
-          </dict>
-          </plist>
-          EOF
+          python3 - <<'PY'
+          import plistlib
+
+          data = {
+              "method": "app-store-connect",
+              "signingStyle": "automatic",
+              "uploadBitcode": False,
+              "compileBitcode": False,
+          }
+
+          with open("/Users/builder/export_options.plist", "wb") as f:
+              plistlib.dump(data, f)
+
+          print("Created export_options.plist")
+          PY
+
+          plutil -lint /Users/builder/export_options.plist
 
 
       - name: Build IPA
