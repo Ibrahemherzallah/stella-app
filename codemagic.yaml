@@ -26,27 +26,19 @@ workflows:
       - name: Install CocoaPods
         script: |
           cd ios && pod install
-          
+
 
       - name: Create export options
         script: |
-          python3 - <<'PY'
-          import plistlib
+          rm -f /Users/builder/export_options.plist
 
-          data = {
-              "method": "app-store-connect",
-              "signingStyle": "automatic",
-              "uploadBitcode": False,
-              "compileBitcode": False,
-          }
-
-          with open("/Users/builder/export_options.plist", "wb") as f:
-              plistlib.dump(data, f)
-
-          print("Created export_options.plist")
-          PY
+          /usr/libexec/PlistBuddy -c "Add :method string app-store" /Users/builder/export_options.plist
+          /usr/libexec/PlistBuddy -c "Add :signingStyle string automatic" /Users/builder/export_options.plist
+          /usr/libexec/PlistBuddy -c "Add :uploadBitcode bool false" /Users/builder/export_options.plist
+          /usr/libexec/PlistBuddy -c "Add :compileBitcode bool false" /Users/builder/export_options.plist
 
           plutil -lint /Users/builder/export_options.plist
+          cat /Users/builder/export_options.plist
 
 
       - name: Build IPA
