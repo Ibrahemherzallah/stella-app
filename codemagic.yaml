@@ -51,8 +51,8 @@ workflows:
           xcodebuild -list
 
           xcode-project build-ipa \
-            --workspace ./*.xcworkspace \
-            --scheme stellagold \
+            --workspace ./StellaGold.xcworkspace \
+            --scheme StellaGold \
             --archive-flags="-allowProvisioningUpdates" \
             --export-options-plist /Users/builder/export_options.plist
 
