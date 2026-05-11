@@ -7,6 +7,9 @@ workflows:
     environment:
       node: latest
 
+      groups:
+        - firebase
+
       vars:
         BUNDLE_ID: com.ibrahemherzallah.stellagold
 
@@ -53,7 +56,7 @@ workflows:
           xcode-project build-ipa \
             --workspace ./StellaGold.xcworkspace \
             --scheme StellaGold \
-            --archive-flags="-allowProvisioningUpdates" \
+            --archive-flags="-allowProvisioningUpdates CODE_SIGN_STYLE=Automatic" \
             --export-options-plist /Users/builder/export_options.plist
 
     artifacts:
