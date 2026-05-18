@@ -16,7 +16,11 @@
 
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.ibrahemherzallah.stellagold"
+      "bundleIdentifier": "com.ibrahemherzallah.stellagold",
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "This app allows users to upload product and profile images, for example when adding or updating jewelry products.",
+        "NSCameraUsageDescription": "This app allows users to take photos for product and profile images."
+      }
     },
 
     "android": {
