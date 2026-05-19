@@ -18,8 +18,8 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.ibrahemherzallah.stellagold",
       "infoPlist": {
-        "NSPhotoLibraryUsageDescription": "This app allows users to upload product and profile images, for example when adding or updating jewelry products.",
-        "NSCameraUsageDescription": "This app allows users to take photos for product and profile images."
+        "NSPhotoLibraryUsageDescription": "Users can select and upload jewelry and product photos when creating or editing product listings in the Stella Gold app.",
+        "NSCameraUsageDescription": "Users can take photos of jewelry and products directly inside the Stella Gold app."
       }
     },
 
