@@ -105,7 +105,7 @@ export const OffersScreen: React.FC = () => {
       Alert.alert('خطأ', 'حدث خطأ أثناء فتح واتساب');
     }
   };
-  console.log("settingsis is: ", settings)
+
   const hasSocialLinks =
     !!settings?.socialMedia?.whatsapp ||
     !!settings?.socialMedia?.instagram ||

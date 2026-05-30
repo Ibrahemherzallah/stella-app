@@ -274,7 +274,7 @@ const styles = StyleSheet.create({
     fontWeight: fontWeights.bold,
   },
   pricesContainer: {
-    gap: 6,
+    gap: 6.5,
   },
 
   rulesTickerContainer: {
