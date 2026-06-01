@@ -58,6 +58,7 @@ export const notifyUsersOnGoldSettingsUpdate = onDocumentUpdated(
           screen: 'PricesScreen',
         },
       }));
+      console.log('Sending to tokens:', uniqueTokens);
 
       const response = await fetch('https://exp.host/--/api/v2/push/send', {
         method: 'POST',

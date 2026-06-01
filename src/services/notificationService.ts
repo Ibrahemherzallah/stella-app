@@ -47,7 +47,7 @@ export async function registerGuestForPushNotificationsAsync() {
     const projectId =
       Constants.expoConfig?.extra?.eas?.projectId ??
       Constants.easConfig?.projectId;
-
+    console.log("projectId is : " , projectId)
     if (!projectId) {
       console.log('Missing Expo/EAS projectId');
       return null;
