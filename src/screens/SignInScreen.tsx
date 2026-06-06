@@ -23,17 +23,37 @@ export const SignInScreen: React.FC = () => {
     try {
       setError(null);
       setLoading(true);
+
       await signIn({ email, password });
     } catch (err: any) {
-      setError(err.message || 'حدث خطأ أثناء تسجيل الدخول');
+      switch (err.code) {
+        case 'auth/invalid-credential':
+          setError('البريد الإلكتروني أو كلمة المرور غير صحيحة');
+          break;
+
+        case 'auth/user-not-found':
+          setError('المستخدم غير موجود');
+          break;
+
+        case 'auth/wrong-password':
+          setError('كلمة المرور غير صحيحة');
+          break;
+
+        case 'auth/invalid-email':
+          setError('صيغة البريد الإلكتروني غير صحيحة');
+          break;
+
+        case 'auth/too-many-requests':
+          setError('تمت عدة محاولات تسجيل دخول. حاول مرة أخرى لاحقاً');
+          break;
+
+        default:
+          setError('البريد الإلكتروني أو كلمة المرور غير صحيحة');
+      }
     } finally {
       setLoading(false);
     }
   };
-
-  useEffect(() => {
-    setMode("light")
-  }, []);
 
   return (
     <ScreenContainer scrollable={false}>
