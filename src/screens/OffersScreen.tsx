@@ -86,23 +86,16 @@ export const OffersScreen: React.FC = () => {
       if (!value?.trim()) return;
 
       const cleaned = value.replace(/[^\d+]/g, '');
-
-      // remove leading +
-      const phone = cleaned.startsWith('+') ? cleaned.slice(1) : cleaned;
-      console.log("phone is :" , phone)
+      const phone = cleaned.startsWith('+')
+        ? cleaned.slice(1)
+        : cleaned;
 
       const url = `https://wa.me/${phone}`;
-      console.log("url is :" , url)
-      const supported = await Linking.canOpenURL(url);
-      if (!supported) {
-        Alert.alert('خطأ', 'تعذر فتح واتساب');
-        return;
-      }
 
       await Linking.openURL(url);
     } catch (error) {
       console.error('openWhatsApp error:', error);
-      Alert.alert('خطأ', 'حدث خطأ أثناء فتح واتساب');
+      Alert.alert('خطأ', 'تعذر فتح واتساب');
     }
   };
 
