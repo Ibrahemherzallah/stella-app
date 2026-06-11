@@ -44,7 +44,7 @@ export const AddGoldItemScreen: React.FC = () => {
   const [showTypeDropdown, setShowTypeDropdown] = useState(false);
   const [localImageUri, setLocalImageUri] = useState<string | null>(null);
   const [existingImageUrl, setExistingImageUrl] = useState<string | undefined>(undefined);
-  const [karat, setKarat] = useState<'21' | '24'>('21');
+  const [karat, setKarat] = useState<'21' | '22' | '24'>('21');
   const [showKaratDropdown, setShowKaratDropdown] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loadingItem, setLoadingItem] = useState(false);
@@ -61,8 +61,8 @@ export const AddGoldItemScreen: React.FC = () => {
         setTitle(item.title ?? '');
         setWeightGrams(String(item.weightGrams ?? ''));
         setMakingFee(String(item.makingFeePerGramUsd ?? 0));
-        setKarat(item.karat === '24' ? '24' : '21');
-        setType(item.karat === '24' ? 'buy' : item.type === 'buy' ? 'buy' : 'sell');
+        setKarat(item.karat === '24' ? '24' : item.karat === '22' ? '22' : '21');
+        setType((item.karat === '24' || item.karat === '22') ? 'buy' : item.type === 'buy' ? 'buy' : 'sell');
         setExistingImageUrl(item.imageUrl);
         setLocalImageUri(null);
       } catch (e) {
@@ -77,7 +77,7 @@ export const AddGoldItemScreen: React.FC = () => {
   }, [itemId]);
 
   useEffect(() => {
-    if (karat === '24') {
+    if (karat === '24' || karat === '22') {
       setType('buy');
       setShowTypeDropdown(false);
     }
@@ -122,7 +122,7 @@ export const AddGoldItemScreen: React.FC = () => {
         makingFeePerGramUsd: parseFloat(sanitizeDecimal(makingFee)) || 0,
         imageUrl: finalImageUrl,
         karat,
-        type: karat === '24' ? 'buy' : type,
+        type: (karat === '24' || karat === '22') ? 'buy' : type,
         isActive: true,
       };
 
@@ -235,8 +235,9 @@ export const AddGoldItemScreen: React.FC = () => {
                 backgroundColor: theme.surface,
               }}
             >
+              // Replace the TouchableOpacity text
               <Text style={{ color: theme.darkText, textAlign: 'right' }}>
-                {karat === '24' ? '24' : '21'}
+                {karat === '24' ? '24' : karat === '22' ? '22' : '21'}
               </Text>
             </TouchableOpacity>
 
@@ -256,13 +257,20 @@ export const AddGoldItemScreen: React.FC = () => {
                     setKarat('21');
                     setShowKaratDropdown(false);
                   }}
-                  style={{
-                    padding: 14,
-                    borderBottomWidth: 1,
-                    borderBottomColor: theme.lightGray,
-                  }}
+                  style={{ padding: 14, borderBottomWidth: 1, borderBottomColor: theme.lightGray }}
                 >
                   <Text style={{ color: theme.darkText, textAlign: 'right' }}>21</Text>
+                </TouchableOpacity>
+
+                {/* ADD THIS */}
+                <TouchableOpacity
+                  onPress={() => {
+                    setKarat('22');
+                    setShowKaratDropdown(false);
+                  }}
+                  style={{ padding: 14, borderBottomWidth: 1, borderBottomColor: theme.lightGray }}
+                >
+                  <Text style={{ color: theme.darkText, textAlign: 'right' }}>22</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -270,9 +278,7 @@ export const AddGoldItemScreen: React.FC = () => {
                     setKarat('24');
                     setShowKaratDropdown(false);
                   }}
-                  style={{
-                    padding: 14,
-                  }}
+                  style={{ padding: 14 }}
                 >
                   <Text style={{ color: theme.darkText, textAlign: 'right' }}>24</Text>
                 </TouchableOpacity>

@@ -17,6 +17,22 @@ export type ProductDoc = {
   updatedAt?: any;
 };
 
+export type RegularProductDoc = {
+  id: string;
+  name: string;
+  description?: string;
+  karat: string;
+  weightGrams: number;
+  priceIls: number;
+  imageUrl: string;
+  isActive: boolean;
+  updatedAt?: any;
+};
+
+
+
+
+
 const toNumber = (value: unknown): number => {
   const n = Number(value);
   return Number.isFinite(n) ? n : 0;
@@ -108,3 +124,47 @@ export const updateProduct = async (
 
   await updateDoc(doc(db, 'products', id), payload);
 };
+
+
+export async function listAllRegularProducts(): Promise<RegularProductDoc[]> {
+  const q = query(
+    collection(db, 'regularProducts'),
+    orderBy('updatedAt', 'desc')
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as RegularProductDoc));
+}
+
+export async function listActiveRegularProducts(): Promise<RegularProductDoc[]> {
+  const q = query(
+    collection(db, 'regularProducts'),
+    where('isActive', '==', true),
+    // remove orderBy to avoid needing a composite index
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as RegularProductDoc));
+}
+
+export async function createRegularProduct(data: Omit<RegularProductDoc, 'id'>): Promise<void> {
+  await addDoc(collection(db, 'regularProducts'), {
+    ...data,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+export async function updateRegularProduct(id: string, data: Partial<RegularProductDoc>): Promise<void> {
+  await updateDoc(doc(db, 'regularProducts', id), {
+    ...data,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+export async function deleteRegularProduct(id: string): Promise<void> {
+  await deleteDoc(doc(db, 'regularProducts', id));
+}
+
+export async function getRegularProductById(id: string): Promise<RegularProductDoc> {
+  const snap = await getDoc(doc(db, 'regularProducts', id));
+  if (!snap.exists()) throw new Error('Product not found');
+  return { id: snap.id, ...snap.data() } as RegularProductDoc;
+}

@@ -49,12 +49,9 @@ export const getHistory = async (karat: '24k' | '22k' | '21k' | '18k' = '21k'): 
   const multiplier = karatMultiplier(karat);
 
   const data: GoldHistoryPoint[] = GOLD_HISTORY_MONTHLY_USD.map((point) => {
-    const gram24kUsd = point.priceUsdPerOunce / OUNCE_TO_GRAMS;
-    const gramKaratUsd = gram24kUsd * multiplier;
-
     return {
       date: point.date,
-      price: Number(gramKaratUsd.toFixed(2)),
+      price: Number(point.priceUsdPerOunce.toFixed(2)), // ← just use raw ounce price
     };
   });
 

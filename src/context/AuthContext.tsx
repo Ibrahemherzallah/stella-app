@@ -40,6 +40,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (fbUser) => {
+      console.log("fbUser:", fbUser?.email);
       try {
         if (fbUser) {
           const userRef = doc(db, "users", fbUser.uid);

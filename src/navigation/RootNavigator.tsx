@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { GuestTabNavigator } from './GuestTabNavigator';
 import { AdminStackNavigator } from './AdminStackNavigator';
+import { SignInScreen } from '@/src/screens/SignInScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -27,7 +28,11 @@ export const RootNavigator: React.FC = () => {
         {isAuthenticated && isAdmin ? (
           <Stack.Screen name="Admin" component={AdminStackNavigator} />
         ) : (
-          <Stack.Screen name="Guest" component={GuestTabNavigator} />
+          <>
+            <Stack.Screen name="Guest" component={GuestTabNavigator} />
+
+            <Stack.Screen name="SignIn" component={SignInScreen} />
+          </>
         )}
       </Stack.Navigator>
     </NavigationContainer>
