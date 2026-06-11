@@ -10,7 +10,7 @@ import { useTheme } from '../context/ThemeContext';
 import { spacing, fontSizes, fontWeights, borderRadius } from '../theme/colors';
 import { getTodaySettings, getRulesText, listItems } from '../services/goldSettingsService';
 import { CurrencyRates } from '../theme/currency';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { Animated } from 'react-native';
 
 type UiCard = {
@@ -22,10 +22,12 @@ type UiCard = {
 
 export const PricesScreen: React.FC = () => {
   const { theme } = useTheme();
+  const navigation = useNavigation();
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const [rulesList, setRulesList] = useState<string[]>([]);
   const [activeRuleIndex, setActiveRuleIndex] = useState(0);
   const [cards, setCards] = useState<UiCard[]>([]);
+  const [tapCount, setTapCount] = useState(0);
   const [rates, setRates] = useState<CurrencyRates>({
     USD: 1,
     JOD: 0,
@@ -114,18 +116,29 @@ export const PricesScreen: React.FC = () => {
       const finalOunceUsdSell = (settings.goldOunceUsd || 0) + (settings.premiumSellOunceUsd || 0);
       const finalOunceUsdBuy = (settings.goldOunceUsd || 0) + (settings.premiumBuyOunceUsd || 0);
 
-      const baseGramSell = (finalOunceUsdSell / 31.1) * 0.87;
-      const baseGramBuy = (finalOunceUsdBuy / 31.1) * 0.885;
-      const baseGramBuy24 = (finalOunceUsdBuy / 31.1);
+      const baseGramSell   = (finalOunceUsdSell / 31.1) * 0.87;
+      const baseGramBuy    = (finalOunceUsdBuy / 31.1) * 0.885;
+      const baseGramBuy24  = finalOunceUsdBuy / 31.1;
+      const baseGramBuy22  = (finalOunceUsdBuy / 31.1) * 0.920;
 
       const computed = items
         .filter((it) => it.isActive !== false)
         .map((it) => {
-          const baseGramUsd = it.type === 'sell' ? baseGramSell : baseGramBuy;
-          const baseGramUsd24 = it.karat === '24' ? baseGramBuy24 : 0;
           const makingFee = it.makingFeePerGramUsd / Number(settings.usdToJod || 1);
           const weight = it.weightGrams || 0;
-          const finalGramUsd = it.karat === '24' ? baseGramUsd24 : baseGramUsd + makingFee;
+
+          let finalGramUsd: number;
+
+          if (it.karat === '24') {
+            finalGramUsd = baseGramBuy24 + makingFee; // was missing makingFee
+          } else if (it.karat === '22') {
+            finalGramUsd = baseGramBuy22 + makingFee; // was using wrong base
+          } else {
+            // 21k default
+            const baseGramUsd = it.type === 'sell' ? baseGramSell : baseGramBuy;
+            finalGramUsd = baseGramUsd + makingFee;
+          }
+
           const priceUsd = finalGramUsd * weight;
 
           return {
@@ -144,6 +157,19 @@ export const PricesScreen: React.FC = () => {
       setLoading(false);
     }
   };
+
+  const handleLogoPress = () => {
+    console.log("enterrr")
+    const count = tapCount + 1;
+    console.log("count :" , count)
+    if (count >= 5) {
+      navigation.navigate('SignIn');
+      setTapCount(0);
+    } else {
+      setTapCount(count);
+    }
+  };
+
 
   useEffect(() => {
     fetchData();
@@ -169,7 +195,7 @@ export const PricesScreen: React.FC = () => {
         <View style={styles.content}>
           <View style={styles.headerRow}>
             <ThemeToggle />
-            <Text style={[styles.title, { color: theme.darkText }]}>أسعار الذهب</Text>
+            <Text style={[styles.title, { color: theme.darkText }]} onPress={handleLogoPress}>أسعار الذهب</Text>
             <View style={{ width: 40 }} />
           </View>
           {lastUpdatedAt ? (

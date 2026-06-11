@@ -1,5 +1,17 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, TextInput, StyleSheet, Switch, KeyboardAvoidingView, Platform, Alert, Image, TouchableOpacity, ScrollView, } from 'react-native';
+import {
+  View,
+  Text,
+  TextInput,
+  StyleSheet,
+  Switch,
+  KeyboardAvoidingView,
+  Platform,
+  Alert,
+  Image,
+  TouchableOpacity,
+  ScrollView,
+} from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -10,21 +22,12 @@ import { ErrorMessage } from '../../components/ErrorMessage';
 import { useTheme } from '../../context/ThemeContext';
 import { spacing, borderRadius, fontSizes, fontWeights } from '../../theme/colors';
 
-import { createProduct, updateProduct, getProductById, } from '../../services/firestoreProducts';
+import {
+  createRegularProduct,
+  updateRegularProduct,
+  getRegularProductById,
+} from '../../services/firestoreProducts';
 import { uploadProductImage } from '../../services/storageProducts';
-
-type AdminProduct = {
-  id?: string;
-  name: string;
-  description?: string;
-  karat: string;
-  weightGrams: number;
-  originalPriceIls: number;
-  discountedPriceIls: number;
-  imageUrl: string;
-  isActive: boolean;
-  soldOut: boolean;
-};
 
 type RouteParams = {
   productId?: string;
@@ -33,11 +36,9 @@ type RouteParams = {
 const sanitizeDecimal = (value: string) => {
   let v = value.replace(/[^0-9.]/g, '');
   const firstDot = v.indexOf('.');
-
   if (firstDot !== -1) {
     v = v.slice(0, firstDot + 1) + v.slice(firstDot + 1).replace(/\./g, '');
   }
-
   return v;
 };
 
@@ -46,20 +47,20 @@ const parseNum = (v: string) => {
   return Number.isFinite(n) ? n : 0;
 };
 
-export const AddProductScreen: React.FC = () => {
+export const AddRegularProductScreen: React.FC = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const { theme } = useTheme();
-  const [soldOut, setSoldOut] = useState(false);
+
   const { productId } = (route.params as RouteParams) || {};
   const isEdit = useMemo(() => !!productId, [productId]);
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [karat, setKarat] = useState('');
+  const [showKaratDropdown, setShowKaratDropdown] = useState(false);
   const [weightGrams, setWeightGrams] = useState('');
-  const [originalPrice, setOriginalPrice] = useState('');
-  const [discountedPrice, setDiscountedPrice] = useState('');
+  const [price, setPrice] = useState('');
   const [imageUri, setImageUri] = useState('');
   const [imageUrl, setImageUrl] = useState('');
   const [isActive, setIsActive] = useState(true);
@@ -79,18 +80,16 @@ export const AddProductScreen: React.FC = () => {
       setInitialLoading(true);
       setError(null);
 
-      const product = await getProductById(id);
+      const product = await getRegularProductById(id);
 
       setName(product.name ?? '');
       setDescription(product.description ?? '');
       setKarat(String(product.karat ?? ''));
       setWeightGrams(String(product.weightGrams ?? ''));
-      setOriginalPrice(String(product.originalPriceIls ?? ''));
-      setDiscountedPrice(String(product.discountedPriceIls ?? ''));
+      setPrice(String(product.priceIls ?? ''));
       setImageUrl(product.imageUrl ?? '');
       setImageUri('');
       setIsActive(product.isActive ?? true);
-      setSoldOut(!!product.soldOut);
     } catch (err) {
       console.error('loadProduct error:', err);
       setError('فشل تحميل بيانات المنتج');
@@ -102,7 +101,6 @@ export const AddProductScreen: React.FC = () => {
   const pickImage = async () => {
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
       if (status !== 'granted') {
         Alert.alert('خطأ', 'نحتاج إلى إذن للوصول إلى معرض الصور');
         return;
@@ -129,8 +127,7 @@ export const AddProductScreen: React.FC = () => {
       !name.trim() ||
       !karat.trim() ||
       !weightGrams.trim() ||
-      !originalPrice.trim() ||
-      !discountedPrice.trim()
+      !price.trim()
     ) {
       setError('الرجاء ملء جميع الحقول المطلوبة');
       return;
@@ -146,28 +143,25 @@ export const AddProductScreen: React.FC = () => {
       setLoading(true);
 
       let finalImageUrl = imageUrl;
-
       if (imageUri) {
         finalImageUrl = await uploadProductImage(imageUri);
       }
 
-      const payload: Omit<AdminProduct, 'id'> = {
+      const payload = {
         name: name.trim(),
         description: description.trim(),
         karat: karat.trim(),
         weightGrams: parseNum(weightGrams),
-        originalPriceIls: parseNum(originalPrice),
-        discountedPriceIls: parseNum(discountedPrice),
+        priceIls: parseNum(price),
         imageUrl: finalImageUrl,
         isActive,
-        soldOut
       };
 
       if (isEdit && productId) {
-        await updateProduct(productId, payload);
+        await updateRegularProduct(productId, payload);
         Alert.alert('نجح', 'تم تحديث المنتج بنجاح');
       } else {
-        await createProduct(payload);
+        await createRegularProduct(payload);
         Alert.alert('نجح', 'تم إضافة المنتج بنجاح');
       }
 
@@ -216,16 +210,14 @@ export const AddProductScreen: React.FC = () => {
           {error ? <ErrorMessage message={error} /> : null}
 
           <View style={styles.form}>
+
+            {/* Image Picker */}
             <View style={styles.inputContainer}>
               <Text style={[styles.label, { color: theme.darkText }]}>صورة المنتج *</Text>
-
               <TouchableOpacity
                 style={[
                   styles.imagePickerButton,
-                  {
-                    backgroundColor: theme.surface,
-                    borderColor: theme.lightGray,
-                  },
+                  { backgroundColor: theme.surface, borderColor: theme.lightGray },
                 ]}
                 onPress={pickImage}
                 activeOpacity={0.85}
@@ -235,12 +227,7 @@ export const AddProductScreen: React.FC = () => {
                 ) : (
                   <View style={styles.imagePlaceholder}>
                     <Camera size={40} color={theme.lightText} />
-                    <Text
-                      style={[
-                        styles.imagePlaceholderText,
-                        { color: theme.lightText },
-                      ]}
-                    >
+                    <Text style={[styles.imagePlaceholderText, { color: theme.lightText }]}>
                       اختيار صورة من الجهاز
                     </Text>
                   </View>
@@ -248,17 +235,11 @@ export const AddProductScreen: React.FC = () => {
               </TouchableOpacity>
             </View>
 
+            {/* Name */}
             <View style={styles.inputContainer}>
               <Text style={[styles.label, { color: theme.darkText }]}>اسم المنتج *</Text>
               <TextInput
-                style={[
-                  styles.input,
-                  {
-                    backgroundColor: theme.surface,
-                    color: theme.darkText,
-                    borderColor: theme.lightGray,
-                  },
-                ]}
+                style={[styles.input, { backgroundColor: theme.surface, color: theme.darkText, borderColor: theme.lightGray }]}
                 value={name}
                 onChangeText={setName}
                 placeholder="مثال: خاتم ذهب أنيق"
@@ -267,21 +248,14 @@ export const AddProductScreen: React.FC = () => {
               />
             </View>
 
+            {/* Description */}
             <View style={styles.inputContainer}>
               <Text style={[styles.label, { color: theme.darkText }]}>الوصف</Text>
               <TextInput
-                style={[
-                  styles.input,
-                  styles.textArea,
-                  {
-                    backgroundColor: theme.surface,
-                    color: theme.darkText,
-                    borderColor: theme.lightGray,
-                  },
-                ]}
+                style={[styles.input, styles.textArea, { backgroundColor: theme.surface, color: theme.darkText, borderColor: theme.lightGray }]}
                 value={description}
                 onChangeText={setDescription}
-                placeholder="وصف المنتج"
+                placeholder="وصف المنتج (اختياري)"
                 placeholderTextColor={theme.lightText}
                 multiline
                 numberOfLines={3}
@@ -289,37 +263,41 @@ export const AddProductScreen: React.FC = () => {
               />
             </View>
 
+            {/* Karat Dropdown */}
             <View style={styles.inputContainer}>
               <Text style={[styles.label, { color: theme.darkText }]}>العيار *</Text>
-              <TextInput
-                style={[
-                  styles.input,
-                  {
-                    backgroundColor: theme.surface,
-                    color: theme.darkText,
-                    borderColor: theme.lightGray,
-                  },
-                ]}
-                value={karat}
-                onChangeText={(v) => setKarat(sanitizeDecimal(v))}
-                placeholder="مثال: 21"
-                placeholderTextColor={theme.lightText}
-                keyboardType="decimal-pad"
-                textAlign="right"
-              />
+              <TouchableOpacity
+                onPress={() => setShowKaratDropdown(!showKaratDropdown)}
+                style={[styles.input, { backgroundColor: theme.surface, borderColor: theme.lightGray, justifyContent: 'center' }]}
+              >
+                <Text style={{ color: karat ? theme.darkText : theme.lightText, textAlign: 'right' }}>
+                  {karat || 'اختر العيار'}
+                </Text>
+              </TouchableOpacity>
+
+              {showKaratDropdown && (
+                <View style={[styles.dropdown, { backgroundColor: theme.surface, borderColor: theme.lightGray }]}>
+                  {['18', '21', '22', '24'].map((k, index, arr) => (
+                    <TouchableOpacity
+                      key={k}
+                      onPress={() => { setKarat(k); setShowKaratDropdown(false); }}
+                      style={[
+                        styles.dropdownItem,
+                        { borderBottomColor: theme.lightGray, borderBottomWidth: index < arr.length - 1 ? 1 : 0 },
+                      ]}
+                    >
+                      <Text style={{ color: theme.darkText, textAlign: 'right' }}>{k}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
             </View>
 
+            {/* Weight */}
             <View style={styles.inputContainer}>
               <Text style={[styles.label, { color: theme.darkText }]}>الوزن (غرام) *</Text>
               <TextInput
-                style={[
-                  styles.input,
-                  {
-                    backgroundColor: theme.surface,
-                    color: theme.darkText,
-                    borderColor: theme.lightGray,
-                  },
-                ]}
+                style={[styles.input, { backgroundColor: theme.surface, color: theme.darkText, borderColor: theme.lightGray }]}
                 value={weightGrams}
                 onChangeText={(v) => setWeightGrams(sanitizeDecimal(v))}
                 placeholder="مثال: 3.5"
@@ -329,21 +307,13 @@ export const AddProductScreen: React.FC = () => {
               />
             </View>
 
+            {/* Price */}
             <View style={styles.inputContainer}>
-              <Text style={[styles.label, { color: theme.darkText }]}>
-                السعر الأصلي (ILS) *
-              </Text>
+              <Text style={[styles.label, { color: theme.darkText }]}>السعر (ILS) *</Text>
               <TextInput
-                style={[
-                  styles.input,
-                  {
-                    backgroundColor: theme.surface,
-                    color: theme.darkText,
-                    borderColor: theme.lightGray,
-                  },
-                ]}
-                value={originalPrice}
-                onChangeText={(v) => setOriginalPrice(sanitizeDecimal(v))}
+                style={[styles.input, { backgroundColor: theme.surface, color: theme.darkText, borderColor: theme.lightGray }]}
+                value={price}
+                onChangeText={(v) => setPrice(sanitizeDecimal(v))}
                 placeholder="مثال: 4500"
                 placeholderTextColor={theme.lightText}
                 keyboardType="decimal-pad"
@@ -351,28 +321,7 @@ export const AddProductScreen: React.FC = () => {
               />
             </View>
 
-            <View style={styles.inputContainer}>
-              <Text style={[styles.label, { color: theme.darkText }]}>
-                السعر بعد الخصم (ILS) *
-              </Text>
-              <TextInput
-                style={[
-                  styles.input,
-                  {
-                    backgroundColor: theme.surface,
-                    color: theme.darkText,
-                    borderColor: theme.lightGray,
-                  },
-                ]}
-                value={discountedPrice}
-                onChangeText={(v) => setDiscountedPrice(sanitizeDecimal(v))}
-                placeholder="مثال: 3800"
-                placeholderTextColor={theme.lightText}
-                keyboardType="decimal-pad"
-                textAlign="right"
-              />
-            </View>
-
+            {/* Active Switch */}
             <View style={[styles.switchContainer, { backgroundColor: theme.surface }]}>
               <Switch
                 value={isActive}
@@ -384,26 +333,12 @@ export const AddProductScreen: React.FC = () => {
                 المنتج نشط
               </Text>
             </View>
-            <View style={[styles.switchContainer, { backgroundColor: theme.surface, marginTop: 12 }]}>
-              <Switch
-                value={soldOut}
-                onValueChange={setSoldOut}
-                trackColor={{ false: theme.lightGray, true: '#D9534F' }}
-                thumbColor={theme.white}
-              />
-              <Text style={[styles.switchLabel, { color: theme.darkText }]}>
-                المنتج نفدت كميته
-              </Text>
-            </View>
+
             <PrimaryButton
               title={
                 loading
-                  ? isEdit
-                    ? 'جارٍ حفظ التعديلات...'
-                    : 'جارٍ إضافة المنتج...'
-                  : isEdit
-                    ? 'حفظ التعديلات'
-                    : 'إضافة المنتج'
+                  ? isEdit ? 'جارٍ حفظ التعديلات...' : 'جارٍ إضافة المنتج...'
+                  : isEdit ? 'حفظ التعديلات' : 'إضافة المنتج'
               }
               onPress={handleSave}
               disabled={loading}
@@ -442,9 +377,6 @@ const styles = StyleSheet.create({
   },
   form: {
     gap: spacing.md,
-  },
-  imageSection: {
-    gap: spacing.sm,
   },
   imagePickerButton: {
     height: 200,
@@ -485,6 +417,15 @@ const styles = StyleSheet.create({
   textArea: {
     minHeight: 80,
     textAlignVertical: 'top',
+  },
+  dropdown: {
+    borderWidth: 1,
+    borderRadius: borderRadius.md,
+    marginTop: 4,
+    overflow: 'hidden',
+  },
+  dropdownItem: {
+    padding: spacing.md,
   },
   switchContainer: {
     flexDirection: 'row',

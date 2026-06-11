@@ -9,6 +9,8 @@ import { useTheme } from '../context/ThemeContext';
 import { fontSizes } from '../theme/colors';
 import { DollarSign, TrendingUp, Tag, LogIn } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ProductsScreen } from '../screens/ProductsScreen';
+import { ShoppingBag } from 'lucide-react-native';
 
 const Tab = createBottomTabNavigator();
 
@@ -50,6 +52,16 @@ export const GuestTabNavigator: React.FC = () => {
           tabBarIcon: ({ color, size }) => <TrendingUp size={size} color={color} />,
         }}
       />
+
+      <Tab.Screen
+        name="Products"
+        component={ProductsScreen}
+        options={{
+          tabBarLabel: 'المنتجات',
+          tabBarIcon: ({ color, size }) => <ShoppingBag size={size} color={color} />,
+        }}
+      />
+
       <Tab.Screen
         name="Offers"
         component={OffersScreen}
@@ -58,14 +70,8 @@ export const GuestTabNavigator: React.FC = () => {
           tabBarIcon: ({ color, size }) => <Tag size={size} color={color} />,
         }}
       />
-      <Tab.Screen
-        name="SignIn"
-        component={SignInScreen}
-        options={{
-          tabBarLabel: 'دخول',
-          tabBarIcon: ({ color, size }) => <LogIn size={size} color={color} />,
-        }}
-      />
+
+
     </Tab.Navigator>
   );
 };

@@ -20,13 +20,6 @@ type GoldPricingSettingsForm = {
 
 type ProductFeeForm = Record<string, string>;
 
-type FirestoreGoldPricingSettings = {
-  goldOunceUsd: number;
-  premiumOunceUsd: number;
-  usdToIls: number;
-  usdToJod: number;
-};
-
 const EMPTY_SETTINGS: GoldPricingSettingsForm = {
   goldOunceUsd: '',
   premiumSellOunceUsd: '',
@@ -172,7 +165,7 @@ export const GoldPricingSettingsScreen: React.FC = () => {
     [settings.usdToJod]
   );
 
-  const { finalSellOunceUsd, finalBuyOunceUsd, baseGramUsdSell, baseGramUsdBuy, baseGramUsdBuy24, finalBuyOunceUsd24 } = useMemo(() => {
+  const { finalSellOunceUsd, finalBuyOunceUsd, baseGramUsdSell, baseGramUsdBuy, baseGramUsdBuy24,baseGramUsdBuy22, finalBuyOunceUsd24 } = useMemo(() => {
     const finalSellOunce = goldOunceUsdNum + premiumSellOunceUsdNum;
 
     const finalBuyOunce = goldOunceUsdNum + premiumBuyOunceUsdNum;
@@ -184,6 +177,7 @@ export const GoldPricingSettingsScreen: React.FC = () => {
     const baseGramSell = finalSellOunce > 0 ? (finalSellOunce / 31.1) * 0.87 : 0;
     const baseGramBuy = finalBuyOunce > 0 ? (finalBuyOunce / 31.1) * 0.885 : 0;
     const baseGramBuy24 = finalBuyOunce > 0 ? (finalBuyOunce / 31.1) : 0;
+    const baseGramBuy22 = finalBuyOunce > 0 ? (finalBuyOunce / 31.1) * 0.920 : 0;
 
     return {
       finalSellOunceUsd: finalSellOunce,
@@ -191,7 +185,8 @@ export const GoldPricingSettingsScreen: React.FC = () => {
       finalBuyOunceUsd24: finalBuyOunce24,
       baseGramUsdSell: baseGramSell,
       baseGramUsdBuy: baseGramBuy,
-      baseGramUsdBuy24: baseGramBuy24
+      baseGramUsdBuy24: baseGramBuy24,
+      baseGramUsdBuy22: baseGramBuy22
     };
   }, [goldOunceUsdNum, premiumSellOunceUsdNum, premiumBuyOunceUsdNum]);
 
@@ -548,7 +543,8 @@ export const GoldPricingSettingsScreen: React.FC = () => {
               const withJODMaking = product.makingFeePerGramUsd / toNumber(settings?.usdToJod);
               const finalGramUsd = product.type === "sell" ? baseGramUsdSell + (withJODMaking || 0) : baseGramUsdBuy + (withJODMaking || 0);
               const finalGramUsd24 = product.karat === "24" ? baseGramUsdBuy24 + (withJODMaking || 0) : 0;
-              const priceUsd = product.karat === "24" ? finalGramUsd24 * (product.weightGrams || 0) : finalGramUsd * (product.weightGrams || 0);
+              const finalGramUsd22 = product.karat === "22" ? baseGramUsdBuy22 + (withJODMaking || 0) : 0;
+              const priceUsd = product.karat === "24" ? finalGramUsd24 * (product.weightGrams || 0) : product.karat === "22" ? finalGramUsd22 * (product.weightGrams || 0) : finalGramUsd * (product.weightGrams || 0);
               const priceJod = priceUsd * usdToJodNum;
               const priceIls = priceUsd * usdToIlsNum;
 

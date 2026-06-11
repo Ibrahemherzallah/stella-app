@@ -2314,12 +2314,16 @@ export const GOLD_HISTORY_MONTHLY_USD: GoldMonthlyPoint[] = [
   { date: '2025-04-01', priceUsdPerOunce: 3217.64 },
   { date: '2025-05-01', priceUsdPerOunce: 3309.49 },
   { date: '2025-06-01', priceUsdPerOunce: 3352.66 },
-  { date: '2025-07-01', priceUsdPerOunce: 3340.15 },
-  { date: '2025-08-01', priceUsdPerOunce: 3368.03 },
-  { date: '2025-09-01', priceUsdPerOunce: 3667.68 },
-  { date: '2025-10-01', priceUsdPerOunce: 4058.33 },
-  { date: '2025-11-01', priceUsdPerOunce: 4087.19 },
-  { date: '2025-12-01', priceUsdPerOunce: 4309.23 },
-  { date: '2026-01-01', priceUsdPerOunce: 4752.75 },
-  { date: '2026-02-01', priceUsdPerOunce: 5019.97 }
+  { date: '2025-07-01', priceUsdPerOunce: 3310.00 },
+  { date: '2025-08-01', priceUsdPerOunce: 3342.70 },
+  { date: '2025-09-01', priceUsdPerOunce: 3643.60 },
+  { date: '2025-10-01', priceUsdPerOunce: 2690.08 },  // keep your original
+  { date: '2025-11-01', priceUsdPerOunce: 4150.00 },
+  { date: '2025-12-01', priceUsdPerOunce: 4300.00 },
+  { date: '2026-01-01', priceUsdPerOunce: 5150.00 },
+  { date: '2026-02-01', priceUsdPerOunce: 5597.00 },  // all-time high reached
+  { date: '2026-03-01', priceUsdPerOunce: 4855.00 },
+  { date: '2026-04-01', priceUsdPerOunce: 4593.00 },
+  { date: '2026-05-01', priceUsdPerOunce: 4518.00 },
+  { date: '2026-06-01', priceUsdPerOunce: 4331.00 },  // current ~June 10
 ];

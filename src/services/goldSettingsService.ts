@@ -23,7 +23,7 @@ export type GoldItem = {
   weightGrams: number;
   makingFeePerGramUsd: number;
   isActive: boolean;
-  karat: '21' | '24';
+  karat: '21' | '22' | '24';
   type: 'sell' | 'buy';
   updatedAt?: any;
 };

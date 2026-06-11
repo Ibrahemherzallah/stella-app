@@ -27,7 +27,7 @@ export const ChartScreen: React.FC = () => {
       setError(null);
       setLoading(true);
 
-      const response = await getHistory('21k');
+      const response = await getHistory('24k'); // ounce price = 24k base
       setData(response);
     } catch (err) {
       console.error('fetchHistory error:', err);
@@ -43,7 +43,7 @@ export const ChartScreen: React.FC = () => {
 
     return [...data.data]
       .slice(-240) // last 20 years
-      .filter((_, i) => i % 2 === 0) // every 2 months
+      .filter((point) => new Date(point.date).getFullYear() >= 1990) // every 2 months
       .reverse();
   }, [data]);
 
@@ -67,10 +67,10 @@ export const ChartScreen: React.FC = () => {
 
   const labels = reversedData.map((point, index) => {
     const date = new Date(point.date);
+    const month = date.getMonth();
     const year = date.getFullYear();
-
     // show one label every 24 months تقريباً
-    if (index % 24 === 0 || index === reversedData.length - 1) {
+    if (month === 0) {
       return `${year}`;
     }
 
@@ -120,7 +120,7 @@ export const ChartScreen: React.FC = () => {
             الرسم البياني التاريخي للذهب
           </Text>
           <Text style={[styles.subtitle, { color: theme.goldPrimary }]}>
-            عيار {data.karat} - بالدولار / غرام
+            ذهب عيار 24 - بالدولار / أونصة
           </Text>
         </View>
 
@@ -179,6 +179,12 @@ export const ChartScreen: React.FC = () => {
               withShadow={false}
               fromZero={false}
               yAxisSuffix=" $"
+              yLabelsOffset={8}         // ← add this
+              formatYLabel={(value) => {
+                const num = parseFloat(value);
+                if (num >= 1000) return `${(num / 1000).toFixed(1)}k`;
+                return num.toFixed(0);
+              }}                         // ← add this - shows "1.4k", "5.6k" etc.
             />
           </ScrollView>
         </View>

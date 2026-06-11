@@ -9,11 +9,14 @@ import { SettingsScreen } from '../screens/admin/SettingsScreen';
 import { GoldPricingSettingsScreen } from '../screens/admin/GoldPricingSettingsScreen';
 import { AddGoldItemScreen } from '@/src/screens/admin/AddGoldItemScreen';
 import { ChangePasswordScreen } from '@/src/screens/admin/ChangePasswordScreen';
+import { AddRegularProductScreen } from '../screens/admin/AddRegularProductScreen';
+import { ShoppingBag, Tag } from 'lucide-react-native'; // add this icon
 
 import { useTheme } from '../context/ThemeContext';
 import { fontSizes } from '../theme/colors';
 import { Package, Settings, ClipboardList } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { RegularProductManagementScreen } from '../screens/admin/RegularProductManagementScreen';
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 
@@ -33,6 +36,7 @@ const ProductManagementStack = () => {
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="ProductManagement" component={ProductManagementScreen} />
       <Stack.Screen name="AddProduct" component={AddProductScreen} />
+      <Stack.Screen name="AddRegularProduct" component={AddRegularProductScreen} />
     </Stack.Navigator>
   );
 };
@@ -42,6 +46,15 @@ const SettingsStack = () => {
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="Settings" component={SettingsScreen} />
       <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
+    </Stack.Navigator>
+  );
+};
+
+const RegularProductsStack = () => {
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="RegularProductManagement" component={RegularProductManagementScreen} />
+      <Stack.Screen name="AddRegularProduct" component={AddRegularProductScreen} />
     </Stack.Navigator>
   );
 };
@@ -81,8 +94,17 @@ export const AdminStackNavigator: React.FC = () => {
         name="ManagementTab"
         component={ProductManagementStack}
         options={{
-          tabBarLabel: 'إدارة المنتجات',
-          tabBarIcon: ({ color, size }) => <ClipboardList size={size} color={color} />,
+          tabBarLabel: 'العروض',
+          tabBarIcon: ({ color, size }) => <Tag size={size} color={color} />,
+        }}
+      />
+
+      <Tab.Screen
+        name="RegularProductsTab"
+        component={RegularProductsStack}
+        options={{
+          tabBarLabel: 'المنتجات',
+          tabBarIcon: ({ color, size }) => <ShoppingBag size={size} color={color} />,
         }}
       />
 
