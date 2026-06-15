@@ -6,9 +6,9 @@ import { spacing, borderRadius, fontSizes, fontWeights } from '../../theme/color
 import { useTheme } from '../../context/ThemeContext';
 import { ThemeToggle } from '../../components/ThemeToggle';
 import { PrimaryButton } from '../../components/PrimaryButton';
-import { getTodaySettings, saveTodaySettings, listItems, updateItem, deleteItem,GoldItem } from '../../services/goldSettingsService';
+import { getTodaySettings, saveTodaySettings, listItems, updateItem, deleteItem,GoldItem,reorderItems  } from '../../services/goldSettingsService';
 import { useFocusEffect, useRoute } from '@react-navigation/native';
-
+import { ArrowUp, ArrowDown } from 'lucide-react-native';
 
 type GoldPricingSettingsForm = {
   goldOunceUsd: string;
@@ -285,6 +285,41 @@ export const GoldPricingSettingsScreen: React.FC = () => {
     );
   };
 
+  const handleMoveUp = async (index: number) => {
+    if (index === 0) return;
+
+    const next = [...products];
+    [next[index - 1], next[index]] = [next[index], next[index - 1]];
+
+    setProducts(next); // optimistic update
+
+    try {
+      await reorderItems(next);
+    } catch (error) {
+      console.error('handleMoveUp error:', error);
+      Alert.alert('خطأ', 'فشل تغيير الترتيب');
+      setProducts(products); // revert on failure
+    }
+  };
+
+  const handleMoveDown = async (index: number) => {
+    if (index === products.length - 1) return;
+
+    const next = [...products];
+    [next[index], next[index + 1]] = [next[index + 1], next[index]];
+
+    setProducts(next); // optimistic update
+
+    try {
+      await reorderItems(next);
+    } catch (error) {
+      console.error('handleMoveDown error:', error);
+      Alert.alert('خطأ', 'فشل تغيير الترتيب');
+      setProducts(products); // revert on failure
+    }
+  };
+
+
   const goToEdit = (productId: string) => {
     // @ts-ignore
     navigation.navigate('AddGoldItem' as never, { itemId: productId } as never);
@@ -539,7 +574,7 @@ export const GoldPricingSettingsScreen: React.FC = () => {
               كل الأصناف
             </Text>
 
-            {products.map((product) => {
+            {products.map((product, index) => {
               const withJODMaking = product.makingFeePerGramUsd / toNumber(settings?.usdToJod);
               const finalGramUsd = product.type === "sell" ? baseGramUsdSell + (withJODMaking || 0) : baseGramUsdBuy + (withJODMaking || 0);
               const finalGramUsd24 = product.karat === "24" ? baseGramUsdBuy24 + (withJODMaking || 0) : 0;
@@ -562,29 +597,29 @@ export const GoldPricingSettingsScreen: React.FC = () => {
                   <View style={styles.titleRow}>
                     <View style={styles.actionsRow}>
                       <TouchableOpacity
-                        onPress={() => goToEdit(product.id)}
-                        style={[
-                          styles.actionBtn,
-                          { backgroundColor: theme.lightGray },
-                        ]}
+                        onPress={() => handleMoveUp(index)}
+                        disabled={index === 0}
+                        style={[styles.actionBtn, { backgroundColor: theme.lightGray, opacity: index === 0 ? 0.4 : 1 }]}
                         activeOpacity={0.85}
                       >
-                        <Text style={[styles.actionText, { color: theme.darkText }]}>
-                          تعديل
-                        </Text>
+                        <ArrowUp size={16} color={theme.darkText} />
                       </TouchableOpacity>
 
                       <TouchableOpacity
-                        onPress={() => handleDeleteItem(product)}
-                        style={[
-                          styles.actionBtn,
-                          { backgroundColor: '#ffdddd' },
-                        ]}
+                        onPress={() => handleMoveDown(index)}
+                        disabled={index === products.length - 1}
+                        style={[styles.actionBtn, { backgroundColor: theme.lightGray, opacity: index === products.length - 1 ? 0.4 : 1 }]}
                         activeOpacity={0.85}
                       >
-                        <Text style={[styles.actionText, { color: '#b00020' }]}>
-                          حذف
-                        </Text>
+                        <ArrowDown size={16} color={theme.darkText} />
+                      </TouchableOpacity>
+
+                      <TouchableOpacity onPress={() => goToEdit(product.id)} style={[styles.actionBtn, { backgroundColor: theme.lightGray }]} activeOpacity={0.85}>
+                        <Text style={[styles.actionText, { color: theme.darkText }]}>تعديل</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity onPress={() => handleDeleteItem(product)} style={[styles.actionBtn, { backgroundColor: '#ffdddd' }]} activeOpacity={0.85}>
+                        <Text style={[styles.actionText, { color: '#b00020' }]}>حذف</Text>
                       </TouchableOpacity>
                     </View>
 

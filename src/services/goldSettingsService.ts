@@ -1,7 +1,7 @@
 // src/services/goldSettingsService.ts
 
 import { db, storage } from './firebase';
-import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, orderBy, query, serverTimestamp, setDoc, updateDoc, } from 'firebase/firestore';
+import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, orderBy, query, serverTimestamp, setDoc, updateDoc,writeBatch } from 'firebase/firestore';
 import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
 import { data } from 'browserslist';
 
@@ -25,6 +25,7 @@ export type GoldItem = {
   isActive: boolean;
   karat: '21' | '22' | '24';
   type: 'sell' | 'buy';
+  order: number; // ← add this
   updatedAt?: any;
 };
 
@@ -168,12 +169,10 @@ export async function getRulesText(): Promise<string | null> {
 // ---------------- ITEMS ----------------
 
 export async function listItems(): Promise<GoldItem[]> {
-  const q = query(collection(db, 'items'), orderBy('updatedAt', 'asc'));
-  const snap = await getDocs(q);
+  const snap = await getDocs(collection(db, 'items'));
 
-  return snap.docs.map((d) => {
+  const items = snap.docs.map((d) => {
     const data = d.data() as any;
-
     return {
       id: d.id,
       title: data?.title ?? '',
@@ -183,11 +182,40 @@ export async function listItems(): Promise<GoldItem[]> {
       isActive: data?.isActive ?? true,
       type: data?.type ?? 'buy',
       karat: data?.karat ?? '21',
+      order: data?.order, // may be undefined
       updatedAt: data?.updatedAt,
-    };
+    } as GoldItem & { order?: number };
   });
+
+  // Sort: items with 'order' come first (ascending), items without it
+  // fall back to updatedAt ascending, placed after ordered items.
+  items.sort((a: any, b: any) => {
+    const aHasOrder = a.order !== undefined;
+    const bHasOrder = b.order !== undefined;
+
+    if (aHasOrder && bHasOrder) return a.order - b.order;
+    if (aHasOrder && !bHasOrder) return -1;
+    if (!aHasOrder && bHasOrder) return 1;
+
+    const aTime = a.updatedAt?.toMillis?.() ?? 0;
+    const bTime = b.updatedAt?.toMillis?.() ?? 0;
+    return aTime - bTime;
+  });
+
+  // ensure order is always a number for type consistency
+  return items.map((it: any) => ({ ...it, order: it.order ?? 0 }));
 }
 
+// Persist the full order of items based on their array position
+export async function reorderItems(items: GoldItem[]): Promise<void> {
+  const batch = writeBatch(db);
+
+  items.forEach((item, index) => {
+    batch.update(doc(db, 'items', item.id), { order: index });
+  });
+
+  await batch.commit();
+}
 
 
 export async function updateItem(itemId: string, patch: Partial<GoldItem>): Promise<void> {
