@@ -235,7 +235,6 @@ export const AddGoldItemScreen: React.FC = () => {
                 backgroundColor: theme.surface,
               }}
             >
-              // Replace the TouchableOpacity text
               <Text style={{ color: theme.darkText, textAlign: 'right' }}>
                 {karat === '24' ? '24' : karat === '22' ? '22' : '21'}
               </Text>

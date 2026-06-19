@@ -58,18 +58,29 @@ export const notifyUsersOnGoldSettingsUpdate = onDocumentUpdated(
           screen: 'PricesScreen',
         },
       }));
-      console.log('Sending to tokens:', uniqueTokens);
+      console.log(`Sending to ${messages.length} tokens`);
 
-      const response = await fetch('https://exp.host/--/api/v2/push/send', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(messages),
-      });
+      // Expo's push API rejects any request with more than 100 messages, so
+      // send in chunks of 100 instead of one batch for the whole audience.
+      const EXPO_PUSH_CHUNK_SIZE = 100;
 
-      const result = await response.json();
-      console.log('Expo push response:', JSON.stringify(result, null, 2));
+      for (let i = 0; i < messages.length; i += EXPO_PUSH_CHUNK_SIZE) {
+        const chunk = messages.slice(i, i + EXPO_PUSH_CHUNK_SIZE);
+
+        const response = await fetch('https://exp.host/--/api/v2/push/send', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(chunk),
+        });
+
+        const result = await response.json();
+        console.log(
+          `Expo push response (chunk ${i / EXPO_PUSH_CHUNK_SIZE + 1}, ${chunk.length} messages):`,
+          JSON.stringify(result, null, 2)
+        );
+      }
     } catch (error) {
       console.error('notifyUsersOnGoldSettingsUpdate error:', error);
     }
